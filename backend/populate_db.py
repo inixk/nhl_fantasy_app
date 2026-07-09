@@ -4,9 +4,9 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from database.engine import init_db, async_session
-from database.models import NHLPlayer, PlayerPosition
-from services.nhl_api import nhl_api
+from backend.database.engine import init_db, async_session
+from backend.database.models import NHLPlayer, PlayerPosition
+from backend.services.nhl_api import nhl_api
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
