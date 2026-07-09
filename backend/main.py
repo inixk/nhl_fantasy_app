@@ -11,6 +11,7 @@ import uvicorn
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiogram.filters import CommandStart
+from aiogram.client.default import DefaultBotProperties 
 from dotenv import load_dotenv
 
 from backend.api.routes import router as api_router
@@ -23,7 +24,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 logging.basicConfig(level=logging.INFO)
 
 # --- НАСТРОЙКА БОТА ---
-bot = Bot(token=BOT_TOKEN, parse_mode="HTML")
+bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
 @dp.message(CommandStart())
