@@ -1,0 +1,41 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    /* Автоматические цвета из Telegram */
+    background-color: var(--tg-theme-bg-color, #ffffff);
+    color: var(--tg-theme-text-color, #000000);
+    margin: 0;
+    padding: 16px;
+}
+
+.player-card {
+    display: flex;
+    align-items: center;
+    background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 12px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.player-photo {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    margin-right: 15px;
+    background-color: #ddd;
+}
+
+.player-info h3 {
+    margin: 0 0 5px 0;
+    font-size: 16px;
+}
+
+.player-stats {
+    font-size: 14px;
+    color: var(--tg-theme-hint-color, #888888);
+}
+
+.price-tag {
+    font-weight: bold;
+    color: #2ecc71;
+}
