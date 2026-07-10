@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import uvicorn
 
 from aiogram import Bot, Dispatcher
@@ -69,6 +70,7 @@ app.add_middleware(
 
 # Подключаем наши маршруты
 app.include_router(api_router, prefix="/api")
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
 
 if __name__ == "__main__":
     # Запуск сервера на локальном порту 8000
