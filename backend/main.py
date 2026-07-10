@@ -32,7 +32,7 @@ dp = Dispatcher()
 async def cmd_start(message: Message):
     """Отправляет приветствие и кнопку для открытия Mini App"""
     # Пока ставим заглушку URL, позже заменим на реальный адрес сайта
-    web_app_url = "https://google.com" 
+    web_app_url = "https://icons-conventional-propecia-greater.trycloudflare.com" 
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🏒 Играть в Фэнтази", web_app=WebAppInfo(url=web_app_url))]
