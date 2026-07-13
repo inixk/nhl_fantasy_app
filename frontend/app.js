@@ -4,12 +4,24 @@ tg.expand();
 let allPlayers = [];
 let currentTransferSlot = { pos: null, index: null };
 
-// 🌟 НАШ СОСТАВ И БАЛАНС
-let balance = 10000;
+// 🌟 ДАЕМ 20 000 FC ДЛЯ ТЕСТА СБОРКИ ПОЛНОГО СОСТАВА
+let balance = 20000; 
 let myRoster = {
-    F: [null, null, null, null, null, null, null, null, null], // 9 слотов
-    D: [null, null, null, null, null, null],                   // 6 слотов
-    G: [null, null]                                            // 2 слота
+    F: [null, null, null, null, null, null, null, null, null],
+    D: [null, null, null, null, null, null],
+    G: [null, null]
+};
+
+// 🎨 ФИРМЕННЫЕ ЦВЕТА ВСЕХ КОМАНД НХЛ ДЛЯ ДЖЕРСИ
+const teamColors = {
+    'ANA': '#F47A38', 'BOS': '#FFB81C', 'BUF': '#002654', 'CGY': '#C8102E',
+    'CAR': '#CC0000', 'CHI': '#CF0A2C', 'COL': '#6F263D', 'CBJ': '#002654',
+    'DAL': '#006847', 'DET': '#CE1126', 'EDM': '#041E42', 'FLA': '#C8102E',
+    'LAK': '#111111', 'MIN': '#154734', 'MTL': '#AF1E2D', 'NSH': '#FFB81C',
+    'NJD': '#CE1126', 'NYI': '#00539B', 'NYR': '#0038A8', 'OTT': '#E31837',
+    'PHI': '#F74902', 'PIT': '#FCB514', 'SJS': '#006D75', 'SEA': '#001628',
+    'STL': '#002F87', 'TBL': '#002868', 'TOR': '#00205B', 'UTA': '#000000',
+    'VAN': '#00205B', 'VGK': '#B4975A', 'WSH': '#041E42', 'WPG': '#041E42'
 };
 
 // Приветствие
@@ -50,10 +62,15 @@ function createPlayerCardHTML(p, showBuyButton = false) {
     if (showBuyButton) {
         rightSide = `<div class="player-right"><button class="pick-btn" onclick="buyPlayer(${p.id})">Pick✅</button></div>`;
     }
+    
+    // Подставляем цвет команды в иконку рынка
+    const bgColor = teamColors[p.team] || '#1e293b';
+    const textColor = ['BOS', 'NSH', 'PIT', 'VGK'].includes(p.team) ? '#000000' : '#ffffff'; // Черный текст для желтых/золотых команд
+
     return `
         <div class="player-card">
             <div class="player-left">
-                <div class="jersey-icon">${p.team}</div>
+                <div class="jersey-icon" style="background-color: ${bgColor}; color: ${textColor}; border-color: ${bgColor};">${p.team}</div>
                 <div class="player-info">
                     <h4 class="player-name">${p.name}</h4>
                     <div class="player-tags">
@@ -84,31 +101,29 @@ function renderFantasyStats() {
     filtered.slice(0, 50).forEach(p => { list.innerHTML += createPlayerCardHTML(p, false); });
 }
 
-// 🌟 КЛИК ПО ИГРОКУ НА ПЛОЩАДКЕ (Купить или Продать)
+// Открытие рынка с площадки
 document.querySelectorAll('.player-slot').forEach(slot => {
     slot.addEventListener('click', function() {
         const pos = this.getAttribute('data-pos');
         const index = parseInt(this.getAttribute('data-index'));
 
-        // 1. Если слот ЗАНЯТ -> Продаем игрока
+        // Продажа
         if (myRoster[pos][index] !== null) {
             const playerToSell = myRoster[pos][index];
-            
-            // Нативный попап Telegram
-            tg.showConfirm(`Продать ${playerToSell.name} за ${playerToSell.price} FC?`, (confirmed) => {
+            tg.showConfirm(`Sell ${playerToSell.name} for ${playerToSell.price} FC?`, (confirmed) => {
                 if (confirmed) {
                     balance += playerToSell.price;
-                    myRoster[pos][index] = null; // Очищаем слот
+                    myRoster[pos][index] = null;
                     updateTeamUI();
                 }
             });
             return;
         }
 
-        // 2. Если слот ПУСТ -> Открываем рынок
+        // Покупка
         currentTransferSlot = { pos, index };
         document.getElementById('market-pos-badge').innerText = pos;
-        document.getElementById('market-modal').style.display = 'block';
+        document.getElementById('market-modal').style.display = 'flex';
         renderMarket();
     });
 });
@@ -132,24 +147,20 @@ function renderMarket() {
     filtered.slice(0, 30).forEach(p => { list.innerHTML += createPlayerCardHTML(p, true); });
 }
 
-// 🌟 ПОКУПКА ИГРОКА
 window.buyPlayer = function(playerId) {
     const player = allPlayers.find(p => p.id === playerId);
     
-    // Проверка 1: Не куплен ли он уже в другой слот?
     const isAlreadyBought = ['F', 'D', 'G'].some(pos => myRoster[pos].some(p => p && p.id === playerId));
     if (isAlreadyBought) {
-        tg.showAlert('Этот игрок уже есть в твоем составе!');
+        tg.showAlert('Player already in your roster!');
         return;
     }
 
-    // Проверка 2: Хватает ли денег?
     if (balance < player.price) {
-        tg.showAlert(`Недостаточно средств! Нужно ${player.price} FC.`);
+        tg.showAlert(`Not enough FC! You need ${player.price} FC.`);
         return;
     }
 
-    // Покупаем!
     balance -= player.price;
     myRoster[currentTransferSlot.pos][currentTransferSlot.index] = player;
     
@@ -157,7 +168,6 @@ window.buyPlayer = function(playerId) {
     updateTeamUI();
 };
 
-// 🌟 ОБНОВЛЕНИЕ ИНТЕРФЕЙСА ПЛОЩАДКИ
 function updateTeamUI() {
     document.getElementById('current-balance').innerText = balance;
     let isFull = true;
@@ -168,24 +178,25 @@ function updateTeamUI() {
         myRoster[pos].forEach((player, i) => {
             const domSlot = domSlots[i];
             if (player) {
-                // Игрок есть - рисуем его Джерси
                 const lastName = player.name.split(' ').pop();
+                // 🎨 МАГИЯ ЦВЕТА
+                const bgColor = teamColors[player.team] || '#1e293b';
+                const textColor = ['BOS', 'NSH', 'PIT', 'VGK'].includes(player.team) ? '#000000' : '#ffffff';
+
                 domSlot.innerHTML = `
-                    <div class="jersey" style="background-color: var(--bg-dark); border-color: var(--accent-blue); color: white;">
+                    <div class="jersey" style="background-color: ${bgColor}; color: ${textColor}; border: 2px solid ${bgColor};">
                         ${player.team}
                     </div>
-                    <div class="slot-name">${lastName}</div>
-                    <div class="price-tag" style="font-size:10px;">${player.price}</div>
+                    <div class="slot-name" style="color: #1e293b;">${lastName}</div>
+                    <div class="rink-price">${player.price}</div>
                 `;
             } else {
-                // Пустой слот
                 domSlot.innerHTML = `<div class="jersey empty">+</div><div class="slot-name">Empty</div>`;
                 isFull = false;
             }
         });
     });
 
-    // Разблокируем кнопку "Сохранить", если состав полон
     const saveBtn = document.getElementById('save-team-btn');
     if (isFull && balance >= 0) {
         saveBtn.removeAttribute('disabled');
@@ -196,7 +207,17 @@ function updateTeamUI() {
     }
 }
 
-// Слушатели поиска
+// 🌟 КНОПКА СОХРАНЕНИЯ СОСТАВА
+document.getElementById('save-team-btn').addEventListener('click', () => {
+    tg.showConfirm("Submit this roster? Your changes will be saved.", (confirmed) => {
+        if (confirmed) {
+            tg.showAlert("✅ Roster saved successfully!");
+            // Позже здесь будет отправка данных на наш FastAPI сервер
+            tg.HapticFeedback.notificationOccurred('success');
+        }
+    });
+});
+
 document.getElementById('fantasy-search').addEventListener('input', renderFantasyStats);
 document.getElementById('fantasy-pos-filter').addEventListener('change', renderFantasyStats);
 document.getElementById('fantasy-sort').addEventListener('change', renderFantasyStats);
