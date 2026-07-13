@@ -23,6 +23,18 @@ body {
     min-height: 100vh;
 }
 
+/* Полностью скрываем уродливые скроллбары для всех элементов */
+::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    background: transparent;
+}
+
+* {
+    scrollbar-width: none; /* Для Firefox */
+    -ms-overflow-style: none; /* Для старых браузеров */
+}
+
 /* Эффект стекла (Glassmorphism) */
 .glass-panel {
     background: var(--glass-bg);
