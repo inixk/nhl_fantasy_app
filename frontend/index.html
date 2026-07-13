@@ -4,21 +4,93 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>NHL Fantasy</title>
-    <!-- Подключаем библиотеку Telegram Web App -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Подключаем стили -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="app">
-        <h2 id="greeting">Загрузка...</h2>
-        <p>Рынок свободных агентов:</p>
-        <div id="players-list">
-            <!-- Сюда JS будет вставлять карточки игроков -->
+
+    <!-- ПРИВЕТСТВЕННОЕ ОКНО (Onboarding) -->
+    <div id="welcome-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Добро пожаловать в NHL Fantasy! 🏒</h2>
+            <p>Собери команду из 17 звезд НХЛ, укладывайся в бюджет <b>10 000 FC</b> и стань лучшим генеральным менеджером!</p>
+            <p>🔄 У тебя есть <b>6 замен</b> на неделю.<br>📈 Цены игроков меняются каждый день!</p>
+            <button id="start-btn" class="tg-button">Понятно, к игре!</button>
         </div>
     </div>
-    
-    <!-- Подключаем логику -->
+
+    <!-- ГЛАВНЫЙ КОНТЕЙНЕР ПРИЛОЖЕНИЯ -->
+    <div id="app-container" style="display: none;">
+        
+        <!-- ВКЛАДКА 1: МОЯ КОМАНДА (Площадка) -->
+        <div id="tab-team" class="tab-content active">
+            <div class="header-info">
+                <div class="balance-box">Баланс: <span id="current-balance">10 000</span> FC</div>
+                <div class="transfers-box">Замены: 6/6</div>
+            </div>
+
+            <!-- Хоккейная коробка -->
+            <div class="ice-rink">
+                <!-- Нападение (3 слота) -->
+                <div class="rink-row forwards">
+                    <div class="player-slot" data-pos="F"><div class="jersey empty">+</div></div>
+                    <div class="player-slot" data-pos="F"><div class="jersey empty">+</div></div>
+                    <div class="player-slot" data-pos="F"><div class="jersey empty">+</div></div>
+                </div>
+                <!-- Защита (2 слота) -->
+                <div class="rink-row defenders">
+                    <div class="player-slot" data-pos="D"><div class="jersey empty">+</div></div>
+                    <div class="player-slot" data-pos="D"><div class="jersey empty">+</div></div>
+                </div>
+                <!-- Вратарь (1 слот) -->
+                <div class="rink-row goalies">
+                    <div class="player-slot" data-pos="G"><div class="jersey empty">+</div></div>
+                </div>
+            </div>
+
+            <!-- Скамейка запасных -->
+            <div class="bench-zone">
+                <h3>Резерв (Очки идут в зачет)</h3>
+                <div class="bench-row">
+                    <div class="player-slot" data-pos="F"><div class="jersey empty">+</div></div>
+                    <div class="player-slot" data-pos="D"><div class="jersey empty">+</div></div>
+                    <div class="player-slot" data-pos="G"><div class="jersey empty">+</div></div>
+                </div>
+            </div>
+
+            <button id="save-team-btn" class="tg-button" disabled>Сохранить состав</button>
+        </div>
+
+        <!-- ВКЛАДКА 2: СТАТИСТИКА НХЛ -->
+        <div id="tab-stats" class="tab-content">
+            <h2>Статистика НХЛ 📊</h2>
+            <p>Здесь будут турнирные таблицы и лидеры НХЛ.</p>
+        </div>
+
+        <!-- ВКЛАДКА 3: РЫНОК (Fantasy) -->
+        <div id="tab-fantasy" class="tab-content">
+            <h2>Рынок игроков 🛒</h2>
+            <div class="filters">
+                <input type="text" placeholder="Поиск по фамилии..." id="search-input">
+                <select id="pos-filter">
+                    <option value="ALL">Все позиции</option>
+                    <option value="F">Нападающие (F)</option>
+                    <option value="D">Защитники (D)</option>
+                    <option value="G">Вратари (G)</option>
+                </select>
+            </div>
+            <div id="market-list"></div>
+        </div>
+
+    </div>
+
+    <!-- НИЖНЕЕ МЕНЮ НАВИГАЦИИ (Tabs) -->
+    <div class="bottom-nav">
+        <div class="nav-item active" data-target="tab-team">🏒 Команда</div>
+        <div class="nav-item" data-target="tab-stats">📊 Stats</div>
+        <div class="nav-item" data-target="tab-fantasy">🛒 Рынок</div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>

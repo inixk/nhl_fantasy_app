@@ -1,41 +1,94 @@
+:root {
+    --bg-color: var(--tg-theme-bg-color, #f4f4f5);
+    --text-color: var(--tg-theme-text-color, #000000);
+    --hint-color: var(--tg-theme-hint-color, #888888);
+    --btn-color: var(--tg-theme-button-color, #2481cc);
+    --btn-text: var(--tg-theme-button-text-color, #ffffff);
+    --rink-bg: #e0f7fa; /* Цвет льда */
+    --rink-lines: #ff4d4d;
+}
+
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    /* Автоматические цвета из Telegram */
-    background-color: var(--tg-theme-bg-color, #ffffff);
-    color: var(--tg-theme-text-color, #000000);
+    font-family: -apple-system, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
     margin: 0;
-    padding: 16px;
+    padding: 0;
+    padding-bottom: 70px; /* Место под нижнее меню */
 }
 
-.player-card {
-    display: flex;
-    align-items: center;
-    background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
-    padding: 10px;
-    margin-bottom: 10px;
-    border-radius: 12px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+/* Приветственное окно */
+.modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8); z-index: 1000;
+    display: flex; justify-content: center; align-items: center;
+}
+.modal-content {
+    background: var(--bg-color); padding: 20px; border-radius: 16px;
+    width: 80%; text-align: center;
+}
+.tg-button {
+    background-color: var(--btn-color); color: var(--btn-text);
+    border: none; padding: 12px 20px; border-radius: 8px;
+    width: 100%; font-size: 16px; font-weight: bold; margin-top: 10px;
+}
+.tg-button:disabled { opacity: 0.5; }
+
+/* Шапка с балансом */
+.header-info {
+    display: flex; justify-content: space-between; padding: 15px;
+    font-weight: bold; background: var(--bg-color);
+    border-bottom: 1px solid #ddd;
+}
+.balance-box { color: #2ecc71; }
+
+/* Хоккейная коробка */
+.ice-rink {
+    background-color: var(--rink-bg);
+    border: 4px solid #34495e; border-radius: 20px;
+    margin: 15px; padding: 20px 0;
+    position: relative;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.1);
+}
+.ice-rink::before { /* Красная линия */
+    content: ''; position: absolute; top: 50%; left: 0;
+    width: 100%; height: 4px; background-color: var(--rink-lines);
+}
+.rink-row {
+    display: flex; justify-content: space-around; margin: 20px 0; position: relative; z-index: 2;
 }
 
-.player-photo {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    margin-right: 15px;
-    background-color: #ddd;
+/* Карточки игроков (Джерси) */
+.player-slot {
+    display: flex; flex-direction: column; align-items: center; width: 60px;
+}
+.jersey {
+    width: 50px; height: 50px; border-radius: 8px;
+    background-color: #bdc3c7; color: #fff;
+    display: flex; justify-content: center; align-items: center;
+    font-weight: bold; font-size: 20px; margin-bottom: 5px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+}
+.jersey.empty {
+    background-color: transparent; border: 2px dashed #7f8c8d; color: #7f8c8d; box-shadow: none;
 }
 
-.player-info h3 {
-    margin: 0 0 5px 0;
-    font-size: 16px;
-}
+/* Скамейка */
+.bench-zone { padding: 0 15px; }
+.bench-row { display: flex; justify-content: flex-start; gap: 15px; overflow-x: auto; }
 
-.player-stats {
-    font-size: 14px;
-    color: var(--tg-theme-hint-color, #888888);
+/* Нижнее меню */
+.bottom-nav {
+    position: fixed; bottom: 0; left: 0; width: 100%;
+    display: flex; justify-content: space-around;
+    background: var(--bg-color); border-top: 1px solid #ccc;
+    padding: 10px 0; z-index: 100;
 }
+.nav-item {
+    text-align: center; font-size: 14px; color: var(--hint-color); padding: 5px;
+}
+.nav-item.active { color: var(--btn-color); font-weight: bold; }
 
-.price-tag {
-    font-weight: bold;
-    color: #2ecc71;
-}
+/* Прячем неактивные вкладки */
+.tab-content { display: none; padding: 15px; }
+.tab-content.active { display: block; }

@@ -1,52 +1,35 @@
-// Инициализируем Telegram Web App
 const tg = window.Telegram.WebApp;
-tg.expand(); // Разворачиваем на весь экран
+tg.expand();
 
-// Получаем имя пользователя из Telegram
-const user = tg.initDataUnsafe?.user;
-const greeting = document.getElementById('greeting');
-if (user) {
-    greeting.innerText = `Привет, ${user.first_name}! 🏒`;
+// 1. Логика Приветственного окна
+const welcomeModal = document.getElementById('welcome-modal');
+const appContainer = document.getElementById('app-container');
+
+// Проверяем, заходил ли юзер раньше
+if (!localStorage.getItem('nhl_onboarding_done')) {
+    document.getElementById('start-btn').addEventListener('click', () => {
+        localStorage.setItem('nhl_onboarding_done', 'true');
+        welcomeModal.style.display = 'none';
+        appContainer.style.display = 'block';
+    });
 } else {
-    greeting.innerText = `Привет, Менеджер! 🏒`;
+    welcomeModal.style.display = 'none';
+    appContainer.style.display = 'block';
 }
 
-// Запрашиваем игроков с нашего FastAPI
-async function loadPlayers() {
-    try {
-        // Запрос к нашему API (сервер сам поймет, что это http://127.0.0.1:8000/api/players)
-        const response = await fetch('/api/players');
-        const players = await response.json();
-        
-        const list = document.getElementById('players-list');
-        list.innerHTML = ''; // Очищаем статус "Загрузка"
-        
-        // Для теста выведем только Топ-20 самых дорогих
-        players.slice(0, 20).forEach(p => {
-            const card = document.createElement('div');
-            card.className = 'player-card';
-            
-            // Если фото нет, ставим заглушку
-            const photoUrl = p.photo ? p.photo : 'https://ui-avatars.com/api/?name='+p.name;
-            
-            card.innerHTML = `
-                <img src="${photoUrl}" alt="photo" class="player-photo">
-                <div class="player-info">
-                    <h3>${p.name} (${p.team})</h3>
-                    <div class="player-stats">
-                        Позиция: <b>${p.position}</b> | Очки: <b>${Math.round(p.points)}</b><br>
-                        Стоимость: <span class="price-tag">${p.price} FC</span>
-                    </div>
-                </div>
-            `;
-            list.appendChild(card);
-        });
-        
-    } catch (error) {
-        console.error("Ошибка загрузки:", error);
-        document.getElementById('players-list').innerText = "Ошибка загрузки игроков 😔";
-    }
-}
+// 2. Логика Нижнего меню (Tabs)
+const navItems = document.querySelectorAll('.nav-item');
+const tabContents = document.querySelectorAll('.tab-content');
 
-// Запускаем функцию при открытии сайта
-loadPlayers();
+navItems.forEach(item => {
+    item.addEventListener('click', () => {
+        // Убираем класс active у всех
+        navItems.forEach(nav => nav.classList.remove('active'));
+        tabContents.forEach(tab => tab.classList.remove('active'));
+        
+        // Добавляем нажатому
+        item.classList.add('active');
+        const targetId = item.getAttribute('data-target');
+        document.getElementById(targetId).classList.add('active');
+    });
+});
