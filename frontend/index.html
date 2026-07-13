@@ -9,25 +9,23 @@
 </head>
 <body>
 
-    <!-- ПРИВЕТСТВЕННОЕ ОКНО -->
     <div id="welcome-modal" class="modal-overlay">
         <div class="glass-panel modal-content">
-            <h2 id="greeting">Добро пожаловать! 🏒</h2>
-            <p>Собери команду из 17 звезд НХЛ, укладывайся в бюджет <b class="highlight">10 000 FC</b> и стань лучшим генеральным менеджером!</p>
-            <p>🔄 У тебя есть <b class="highlight">6 замен</b> на неделю.<br>📈 Цены игроков меняются каждый день!</p>
-            <button id="start-btn" class="glass-btn primary-btn">Начать игру</button>
+            <h2 id="greeting">Welcome! 🏒</h2>
+            <p>Build a team of 17 NHL stars, manage your <b class="highlight">10 000 FC</b> budget, and become the best GM!</p>
+            <p>🔄 You have <b class="highlight">6 changes</b> per week.<br>📈 Prices change daily!</p>
+            <button id="start-btn" class="glass-btn primary-btn">Start Game</button>
         </div>
     </div>
 
-    <!-- ОКНО РЫНКА (Выезжает снизу) -->
-    <!-- ДОБАВЛЕН КЛАСС market-overlay -->
+    <!-- ОКНО РЫНКА -->
     <div id="market-modal" class="modal-overlay market-overlay" style="display: none;">
         <div class="glass-panel market-content">
             <div class="market-header">
-                <h3>Замена: <span id="market-pos-badge" class="badge">F</span></h3>
+                <!-- ПЕРЕВОД ЗДЕСЬ -->
+                <h3>Select: <span id="market-pos-badge" class="badge">F</span></h3>
                 <button id="close-market-btn" class="icon-btn">✕</button>
             </div>
-            
             <div class="filters-container">
                 <input type="text" id="market-search" placeholder="Player..." class="glass-input">
                 <div class="sort-group">
@@ -38,58 +36,74 @@
                     </select>
                 </div>
             </div>
-            
             <div id="market-players-list" class="players-scroll-list"></div>
         </div>
     </div>
 
-    <!-- ГЛАВНЫЙ КОНТЕЙНЕР -->
     <div id="app-container" style="display: none;">
         
-        <!-- ВКЛАДКА 1: TEAM (Площадка) -->
         <div id="tab-team" class="tab-content active">
             <div class="glass-panel header-info">
-                <!-- ОБНОВЛЕНЫ ТЕКСТЫ НА АНГЛИЙСКИЕ -->
                 <div class="balance-box">Balance: <span id="current-balance">10 000</span> FC</div>
                 <div class="transfers-box">Changes: <span id="current-changes">6</span>/6</div>
             </div>
 
-            <!-- Вертикальная хоккейная площадка -->
             <div class="ice-rink">
-                <!-- Нападение -->
+                <!-- НАПАДАЮЩИЕ (9) -->
                 <div class="rink-section-title">Forwards</div>
-                <div class="rink-row forwards"><div class="player-slot" data-pos="F"><div class="jersey empty">+</div></div><div class="player-slot" data-pos="F"><div class="jersey empty">+</div></div><div class="player-slot" data-pos="F"><div class="jersey empty">+</div></div></div>
-                <div class="rink-row forwards"><div class="player-slot" data-pos="F"><div class="jersey empty">+</div></div><div class="player-slot" data-pos="F"><div class="jersey empty">+</div></div><div class="player-slot" data-pos="F"><div class="jersey empty">+</div></div></div>
-                <div class="rink-row forwards"><div class="player-slot" data-pos="F"><div class="jersey empty">+</div></div><div class="player-slot" data-pos="F"><div class="jersey empty">+</div></div><div class="player-slot" data-pos="F"><div class="jersey empty">+</div></div></div>
+                <div class="rink-row forwards">
+                    <div class="player-slot" data-pos="F" data-index="0"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div>
+                    <div class="player-slot" data-pos="F" data-index="1"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div>
+                    <div class="player-slot" data-pos="F" data-index="2"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div>
+                </div>
+                <div class="rink-row forwards">
+                    <div class="player-slot" data-pos="F" data-index="3"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div>
+                    <div class="player-slot" data-pos="F" data-index="4"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div>
+                    <div class="player-slot" data-pos="F" data-index="5"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div>
+                </div>
+                <div class="rink-row forwards">
+                    <div class="player-slot" data-pos="F" data-index="6"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div>
+                    <div class="player-slot" data-pos="F" data-index="7"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div>
+                    <div class="player-slot" data-pos="F" data-index="8"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div>
+                </div>
                 
                 <div class="red-line"></div>
                 
-                <!-- Защита -->
+                <!-- ЗАЩИТНИКИ (6) -->
                 <div class="rink-section-title">Defenders</div>
-                <div class="rink-row defenders"><div class="player-slot" data-pos="D"><div class="jersey empty">+</div></div><div class="player-slot" data-pos="D"><div class="jersey empty">+</div></div></div>
-                <div class="rink-row defenders"><div class="player-slot" data-pos="D"><div class="jersey empty">+</div></div><div class="player-slot" data-pos="D"><div class="jersey empty">+</div></div></div>
-                <div class="rink-row defenders"><div class="player-slot" data-pos="D"><div class="jersey empty">+</div></div><div class="player-slot" data-pos="D"><div class="jersey empty">+</div></div></div>
+                <div class="rink-row defenders">
+                    <div class="player-slot" data-pos="D" data-index="0"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div>
+                    <div class="player-slot" data-pos="D" data-index="1"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div>
+                </div>
+                <div class="rink-row defenders">
+                    <div class="player-slot" data-pos="D" data-index="2"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div>
+                    <div class="player-slot" data-pos="D" data-index="3"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div>
+                </div>
+                <div class="rink-row defenders">
+                    <div class="player-slot" data-pos="D" data-index="4"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div>
+                    <div class="player-slot" data-pos="D" data-index="5"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div>
+                </div>
                 
                 <div class="blue-line"></div>
                 
-                <!-- Вратари -->
+                <!-- ВРАТАРИ (2) -->
                 <div class="rink-section-title">Goalies</div>
-                <div class="rink-row goalies"><div class="player-slot" data-pos="G"><div class="jersey empty">+</div></div><div class="player-slot" data-pos="G"><div class="jersey empty">+</div></div></div>
+                <div class="rink-row goalies">
+                    <div class="player-slot" data-pos="G" data-index="0"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div>
+                    <div class="player-slot" data-pos="G" data-index="1"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div>
+                </div>
             </div>
 
-            <!-- ОБНОВЛЕН ТЕКСТ КНОПКИ -->
             <button id="save-team-btn" class="glass-btn primary-btn" style="margin-top: 15px;" disabled>Save changes</button>
         </div>
 
-        <!-- ВКЛАДКА 2: NHL STATS -->
         <div id="tab-stats" class="tab-content">
             <div class="glass-panel title-panel">
                 <h2>NHL STATS 📊</h2>
-                <p>Турнирные таблицы и статистика лиги.</p>
+                <p>Coming soon...</p>
             </div>
         </div>
 
-        <!-- ВКЛАДКА 3: FANTASY STATS -->
         <div id="tab-fantasy" class="tab-content">
             <div class="filters-container glass-panel" style="margin-bottom: 15px; border-radius: 16px;">
                 <input type="text" id="fantasy-search" placeholder="Player..." class="glass-input">
@@ -107,15 +121,11 @@
                     </select>
                 </div>
             </div>
-            
-            <div id="fantasy-players-list">
-                <div class="loading-text">Загрузка статистики...</div>
-            </div>
+            <div id="fantasy-players-list"></div>
         </div>
 
     </div>
 
-    <!-- НИЖНЕЕ МЕНЮ (Tabs) -->
     <div class="bottom-nav">
         <div class="nav-item active" data-target="tab-team">🏒 TEAM</div>
         <div class="nav-item" data-target="tab-stats">📊 NHL STATS</div>
