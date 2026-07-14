@@ -5,7 +5,7 @@ let allPlayers = [];
 let currentTransferSlot = { pos: null, index: null };
 
 // 🌟 ДАЕМ 20 000 FC ДЛЯ ТЕСТА СБОРКИ ПОЛНОГО СОСТАВА
-let balance = 20000; 
+let balance = 10000; 
 let myRoster = {
     F: [null, null, null, null, null, null, null, null, null],
     D: [null, null, null, null, null, null],
@@ -144,7 +144,8 @@ function renderMarket() {
     if (sortBy === 'price_asc') filtered.sort((a, b) => a.price - b.price);
 
     list.innerHTML = '';
-    filtered.slice(0, 30).forEach(p => { list.innerHTML += createPlayerCardHTML(p, true); });
+    // Выводим больше игроков, чтобы поиск работал по всем!
+    filtered.slice(0, 150).forEach(p => { list.innerHTML += createPlayerCardHTML(p, true); });
 }
 
 window.buyPlayer = function(playerId) {
@@ -207,13 +208,50 @@ function updateTeamUI() {
     }
 }
 
-// 🌟 КНОПКА СОХРАНЕНИЯ СОСТАВА
+// 🌟 КНОПКА СОХРАНЕНИЯ СОСТАВА (API CALL)
 document.getElementById('save-team-btn').addEventListener('click', () => {
-    tg.showConfirm("Submit this roster? Your changes will be saved.", (confirmed) => {
+    tg.showConfirm("Сохранить состав? Ваш баланс и замены будут обновлены.", async (confirmed) => {
         if (confirmed) {
-            tg.showAlert("✅ Roster saved successfully!");
-            // Позже здесь будет отправка данных на наш FastAPI сервер
-            tg.HapticFeedback.notificationOccurred('success');
+            const saveBtn = document.getElementById('save-team-btn');
+            saveBtn.innerText = "Сохранение...";
+            saveBtn.disabled = true;
+
+            // Собираем ID всех игроков на льду
+            let rosterIds = [];
+            ['F', 'D', 'G'].forEach(pos => {
+                myRoster[pos].forEach(player => {
+                    rosterIds.push(player ? player.id : null);
+                });
+            });
+
+            // Получаем ID пользователя из Telegram
+            const userId = tg.initDataUnsafe?.user?.id || 123456789; // 123456789 для теста в браузере
+
+            try {
+                const response = await fetch('/api/save_team', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        roster_ids: rosterIds,
+                        balance: balance
+                    })
+                });
+
+                if (response.ok) {
+                    tg.showAlert("✅ Состав успешно сохранен в базу данных!");
+                    tg.HapticFeedback.notificationOccurred('success');
+                    saveBtn.innerText = "Состав сохранен";
+                    saveBtn.style.background = "var(--glass-border)";
+                } else {
+                    throw new Error("Server error");
+                }
+            } catch (err) {
+                console.error(err);
+                tg.showAlert("❌ Ошибка при сохранении состава.");
+                saveBtn.innerText = "Save changes";
+                saveBtn.disabled = false;
+            }
         }
     });
 });

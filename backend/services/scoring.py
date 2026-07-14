@@ -18,6 +18,22 @@ class ScoringService:
             assists = game_data.get("assists", 0)
             win = game_data.get("win", False)
 
+            # 🌟 БАФФ ВРАТАРЕЙ ДЛЯ БАЛАНСА ЭКОНОМИКИ
+            points += saves * 0.4
+            points -= goals_against * 1.5
+            if shutout > 0: points += 10.0
+            if win: points += 6.0
+            points -= pim * 0.2
+            points += goals * 20.0
+            points += assists * 10.0
+            saves = game_data.get("saves", 0)
+            goals_against = game_data.get("goalsAgainst", 0)
+            shutout = game_data.get("shutouts", 0)
+            pim = game_data.get("pim", 0)
+            goals = game_data.get("goals", 0)
+            assists = game_data.get("assists", 0)
+            win = game_data.get("win", False)
+
             points += saves * 0.2
             points -= goals_against * 2.0
             if shutout > 0: points += 10.0
