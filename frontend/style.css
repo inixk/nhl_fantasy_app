@@ -193,3 +193,18 @@ body {
     font-size: 11px;
     margin-top: 2px;
 }
+
+/* Цвета для очков и цены */
+.player-price-white {
+    color: #ffffff; /* Цена теперь белая */
+    font-weight: 600;
+}
+.pts-positive {
+    color: var(--accent-green); /* Зеленый прирост */
+}
+.pts-negative {
+    color: var(--ice-line-red); /* Красный убыток */
+}
+.pts-neutral {
+    color: var(--text-muted); /* Серый ноль */
+}

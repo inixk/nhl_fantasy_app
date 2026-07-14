@@ -92,11 +92,10 @@ async def populate():
             player.fantasy_points = points
             player.games_played = gp
             
-            # 🌟 ИДЕАЛЬНАЯ МАТЕМАТИКА ИЗ OBSIDIAN 🌟
-            # 1 FC = 1 Point. Округляем до десятков (например 943 -> 940)
-            calculated_price = round(expected_season_pts / 10) * 10
-            # Минимальная цена - 250 FC для глубокого резерва/новичков
-            player.price = max(250.0, float(calculated_price)) 
+             # 🌟 ВОЗВРАЩАЕМ ИНДЕКСАЦИЮ! (Множитель 4.5)
+            # Округляем до десятков (например 4635 -> 4640)
+            calculated_price = expected_season_pts * 4.5
+            player.price = max(250.0, round(calculated_price / 10) * 10)  
             
         await session.commit()
         logger.info("Prices calculated and saved!")
