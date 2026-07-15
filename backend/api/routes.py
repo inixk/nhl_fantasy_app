@@ -1,5 +1,9 @@
 # backend/api/routes.py
 import asyncio
+import random
+import string
+
+from sqlalchemy import desc
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
@@ -269,3 +273,144 @@ async def get_nhl_scores(date: str = "now"):
     tasks = [fetch_game_details(g) for g in target_games]
     results = await asyncio.gather(*tasks)
     return results
+
+# ==========================================
+# 🏆 ЭНДПОИНТЫ ДЛЯ ЛИГ (LEAGUES)
+# ==========================================
+
+class CreateLeagueRequest(BaseModel):
+    user_id: int
+    name: str
+
+class JoinLeagueRequest(BaseModel):
+    user_id: int
+    invite_code: str
+
+def generate_invite_code(length=8):
+    """Генерирует случайный 8-значный код из букв и цифр"""
+    chars = string.ascii_uppercase + string.digits
+    return ''.join(random.choice(chars) for _ in range(length))
+
+@router.get("/leagues/general")
+async def get_general_leaderboard(user_id: int, db: AsyncSession = Depends(get_db)):
+    """Возвращает Топ-100 глобального лидерборда и позицию самого юзера"""
+    # Ищем глобальную лигу
+    res_league = await db.execute(select(League).where(League.is_global == True))
+    global_league = res_league.scalar_one_or_none()
+    if not global_league:
+        return {"leaderboard": [], "user_rank": None}
+
+    # Достаем всех участников глобальной лиги, отсортированных по очкам (total_points)
+    res_members = await db.execute(
+        select(LeagueMember, User)
+        .join(User, LeagueMember.user_id == User.id)
+        .where(LeagueMember.league_id == global_league.id)
+        .order_by(desc(LeagueMember.total_points))
+    )
+    
+    leaderboard = []
+    user_rank = None
+    
+    # Формируем рейтинг
+    for rank, (member, user) in enumerate(res_members, start=1):
+        if member.user_id == user_id:
+            user_rank = {
+                "rank": rank,
+                "name": user.display_name,
+                "points": member.total_points
+            }
+            
+        if rank <= 100: # Отдаем только Топ-100 для экономии трафика
+            leaderboard.append({
+                "rank": rank,
+                "name": user.display_name,
+                "points": member.total_points,
+                "is_me": member.user_id == user_id
+            })
+            
+    return {"leaderboard": leaderboard, "user_rank": user_rank}
+
+
+@router.get("/leagues/my")
+async def get_my_leagues(user_id: int, db: AsyncSession = Depends(get_db)):
+    """Возвращает список частных лиг, в которых состоит пользователь"""
+    res = await db.execute(
+        select(League)
+        .join(LeagueMember)
+        .where(LeagueMember.user_id == user_id, League.is_global == False)
+    )
+    leagues = res.scalars().all()
+    
+    return [{"id": l.id, "name": l.name, "invite_code": l.invite_code} for l in leagues]
+
+
+@router.post("/leagues/create")
+async def create_league(req: CreateLeagueRequest, db: AsyncSession = Depends(get_db)):
+    """Создает новую лигу и добавляет туда создателя"""
+    invite_code = generate_invite_code()
+    
+    # Убеждаемся, что код уникальный (хоть шанс совпадения и мизерный)
+    while (await db.execute(select(League).where(League.invite_code == invite_code))).scalar_one_or_none():
+        invite_code = generate_invite_code()
+
+    new_league = League(
+        name=req.name,
+        invite_code=invite_code,
+        is_global=False
+    )
+    db.add(new_league)
+    await db.flush() # Получаем ID новой лиги
+    
+    # Добавляем создателя в лигу
+    member = LeagueMember(league_id=new_league.id, user_id=req.user_id)
+    db.add(member)
+    await db.commit()
+    
+    return {"status": "success", "league_id": new_league.id, "invite_code": invite_code}
+
+
+@router.post("/leagues/join")
+async def join_league(req: JoinLeagueRequest, db: AsyncSession = Depends(get_db)):
+    """Добавляет пользователя в лигу по инвайт-коду"""
+    # Ищем лигу по коду
+    res_league = await db.execute(select(League).where(League.invite_code == req.invite_code.upper()))
+    league = res_league.scalar_one_or_none()
+    
+    if not league:
+        raise HTTPException(status_code=404, detail="Лига не найдена. Проверьте код.")
+        
+    # Проверяем, не состоит ли он уже там
+    res_member = await db.execute(
+        select(LeagueMember).where(LeagueMember.league_id == league.id, LeagueMember.user_id == req.user_id)
+    )
+    if res_member.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Вы уже состоите в этой лиге!")
+        
+    # Добавляем юзера
+    member = LeagueMember(league_id=league.id, user_id=req.user_id)
+    db.add(member)
+    await db.commit()
+    
+    return {"status": "success", "league_name": league.name}
+
+
+@router.get("/leagues/{league_id}/leaderboard")
+async def get_league_leaderboard(league_id: int, user_id: int, db: AsyncSession = Depends(get_db)):
+    """Возвращает лидерборд конкретной частной лиги"""
+    res_members = await db.execute(
+        select(LeagueMember, User)
+        .join(User, LeagueMember.user_id == User.id)
+        .where(LeagueMember.league_id == league_id)
+        .order_by(desc(LeagueMember.total_points))
+    )
+    
+    leaderboard = []
+    for rank, (member, user) in enumerate(res_members, start=1):
+        leaderboard.append({
+            "rank": rank,
+            "name": user.display_name,
+            "points": member.total_points,
+            "is_me": member.user_id == user_id
+        })
+            
+    return {"leaderboard": leaderboard}
