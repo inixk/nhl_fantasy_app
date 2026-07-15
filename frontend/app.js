@@ -5,29 +5,20 @@ let allPlayers = [];
 let currentTransferSlot = { pos: null, index: null };
 
 let balance = 10000; 
-let myRoster = {
-    F: [null, null, null, null, null, null, null, null, null],
-    D: [null, null, null, null, null, null],
-    G: [null, null]
-};
+let captainId = null; // 🌟 СОХРАНЯЕМ КАПИТАНА
+let myRoster = { F: [null,null,null,null,null,null,null,null,null], D: [null,null,null,null,null,null], G: [null,null] };
 
 const teamColors = {
-    'ANA': '#F47A38', 'BOS': '#FFB81C', 'BUF': '#002654', 'CGY': '#C8102E',
-    'CAR': '#CC0000', 'CHI': '#CF0A2C', 'COL': '#6F263D', 'CBJ': '#002654',
-    'DAL': '#006847', 'DET': '#CE1126', 'EDM': '#041E42', 'FLA': '#C8102E',
-    'LAK': '#111111', 'MIN': '#154734', 'MTL': '#AF1E2D', 'NSH': '#FFB81C',
-    'NJD': '#CE1126', 'NYI': '#00539B', 'NYR': '#0038A8', 'OTT': '#E31837',
-    'PHI': '#F74902', 'PIT': '#FCB514', 'SJS': '#006D75', 'SEA': '#001628',
-    'STL': '#002F87', 'TBL': '#002868', 'TOR': '#00205B', 'UTA': '#000000',
-    'VAN': '#00205B', 'VGK': '#B4975A', 'WSH': '#041E42', 'WPG': '#041E42'
+    'ANA': '#F47A38', 'BOS': '#FFB81C', 'BUF': '#002654', 'CGY': '#C8102E', 'CAR': '#CC0000', 'CHI': '#CF0A2C', 'COL': '#6F263D', 'CBJ': '#002654',
+    'DAL': '#006847', 'DET': '#CE1126', 'EDM': '#041E42', 'FLA': '#C8102E', 'LAK': '#111111', 'MIN': '#154734', 'MTL': '#AF1E2D', 'NSH': '#FFB81C',
+    'NJD': '#CE1126', 'NYI': '#00539B', 'NYR': '#0038A8', 'OTT': '#E31837', 'PHI': '#F74902', 'PIT': '#FCB514', 'SJS': '#006D75', 'SEA': '#001628',
+    'STL': '#002F87', 'TBL': '#002868', 'TOR': '#00205B', 'UTA': '#000000', 'VAN': '#00205B', 'VGK': '#B4975A', 'WSH': '#041E42', 'WPG': '#041E42'
 };
 
-// Заполняем фильтры команд
 function populateTeamFilters() {
     const teams = Object.keys(teamColors).sort();
     const marketSelect = document.getElementById('market-team-filter');
     const fantasySelect = document.getElementById('fantasy-team-filter');
-    
     teams.forEach(t => {
         marketSelect.innerHTML += `<option value="${t}">${t}</option>`;
         fantasySelect.innerHTML += `<option value="${t}">${t}</option>`;
@@ -35,27 +26,27 @@ function populateTeamFilters() {
 }
 populateTeamFilters();
 
-// Приветствие и Модалки
+// Приветствие
 const user = tg.initDataUnsafe?.user;
 if (user && document.getElementById('greeting')) {
     document.getElementById('greeting').innerText = `Welcome, ${user.first_name}! 🏒`;
 }
 const userId = user?.id || 123456789;
 
-document.getElementById('start-btn')?.addEventListener('click', () => {
+if (!localStorage.getItem('nhl_onboarding_done')) {
+    document.getElementById('start-btn')?.addEventListener('click', () => {
+        localStorage.setItem('nhl_onboarding_done', 'true');
+        document.getElementById('welcome-modal').style.display = 'none';
+        document.getElementById('app-container').style.display = 'block';
+    });
+} else {
     document.getElementById('welcome-modal').style.display = 'none';
     document.getElementById('app-container').style.display = 'block';
-});
+}
 
-// Кнопка INFO
-document.getElementById('info-btn').addEventListener('click', () => {
-    document.getElementById('info-modal').style.display = 'flex';
-});
-document.getElementById('close-info-btn').addEventListener('click', () => {
-    document.getElementById('info-modal').style.display = 'none';
-});
+document.getElementById('info-btn').addEventListener('click', () => { document.getElementById('info-modal').style.display = 'flex'; });
+document.getElementById('close-info-btn').addEventListener('click', () => { document.getElementById('info-modal').style.display = 'none'; });
 
-// Tabs
 const navItems = document.querySelectorAll('.nav-item');
 const tabContents = document.querySelectorAll('.tab-content');
 navItems.forEach(item => {
@@ -73,9 +64,7 @@ async function initApp() {
         allPlayers = await response.json();
         renderFantasyStats();
         await fetchMyTeam();
-    } catch (error) {
-        console.error("Error fetching players:", error);
-    }
+    } catch (error) { console.error("Error fetching players:", error); }
 }
 
 async function fetchMyTeam() {
@@ -84,6 +73,7 @@ async function fetchMyTeam() {
         const data = await response.json();
         
         balance = data.balance;
+        captainId = data.captain_id; // Загружаем Кэпа
         myRoster = { F: [null,null,null,null,null,null,null,null,null], D: [null,null,null,null,null,null], G: [null,null] };
         
         let fIndex = 0, dIndex = 0, gIndex = 0;
@@ -96,20 +86,17 @@ async function fetchMyTeam() {
             }
         });
         updateTeamUI();
-    } catch (error) {
-        console.error("Error fetching my team:", error);
-    }
+    } catch (error) { console.error("Error fetching my team:", error); }
 }
 
 function createPlayerCardHTML(p, showBuyButton = false) {
-    // 🎨 ЦВЕТНАЯ ИНДИКАЦИЯ ОЧКОВ
     let ptsClass = p.points > 0 ? 'pts-positive' : (p.points < 0 ? 'pts-negative' : 'pts-neutral');
     let ptsPrefix = p.points > 0 ? '+' : '';
     
     let rightSide = `
         <div class="player-right">
             <span class="pts-value ${ptsClass}">${ptsPrefix}${Math.round(p.points)}</span>
-            <span class="pts-label">PTS</span>
+            <span class="pts-label">FC</span>
         </div>
     `;
     if (showBuyButton) {
@@ -127,7 +114,6 @@ function createPlayerCardHTML(p, showBuyButton = false) {
                     <h4 class="player-name">${p.name}</h4>
                     <div class="player-tags">
                         <span class="badge pos-${p.position}">${p.position}</span>
-                        <!-- 🎨 ЦЕНА ТЕПЕРЬ БЕЛАЯ -->
                         <span class="player-price-white">${p.price} FC</span>
                     </div>
                 </div>
@@ -137,17 +123,25 @@ function createPlayerCardHTML(p, showBuyButton = false) {
     `;
 }
 
-function filterAndSort(searchId, posId, teamId, sortId, positionForce = null) {
+function filterAndSort(searchId, posId, teamId, sortId, minPriceId, maxPriceId, positionForce = null) {
     const search = document.getElementById(searchId).value.toLowerCase();
     const posFilter = positionForce || (document.getElementById(posId) ? document.getElementById(posId).value : 'ALL');
     const teamFilter = document.getElementById(teamId).value;
     const sortBy = document.getElementById(sortId).value;
+    
+    // Новые фильтры цены
+    const minPrice = parseInt(document.getElementById(minPriceId)?.value) || 0;
+    const maxPrice = parseInt(document.getElementById(maxPriceId)?.value) || 99999;
 
-    let filtered = allPlayers.filter(p => p.name.toLowerCase().includes(search));
+    let filtered = allPlayers.filter(p => {
+        return p.name.toLowerCase().includes(search) && p.price >= minPrice && p.price <= maxPrice;
+    });
     if (posFilter !== 'ALL') filtered = filtered.filter(p => p.position === posFilter);
     if (teamFilter !== 'ALL') filtered = filtered.filter(p => p.team === teamFilter);
 
-    if (sortBy === 'points') filtered.sort((a, b) => b.points - a.points);
+    // Новая двухсторонняя сортировка по очкам/FC
+    if (sortBy === 'points_desc') filtered.sort((a, b) => b.points - a.points); // Рост
+    if (sortBy === 'points_asc') filtered.sort((a, b) => a.points - b.points);  // Падение
     if (sortBy === 'price_desc') filtered.sort((a, b) => b.price - a.price);
     if (sortBy === 'price_asc') filtered.sort((a, b) => a.price - b.price);
 
@@ -156,32 +150,46 @@ function filterAndSort(searchId, posId, teamId, sortId, positionForce = null) {
 
 function renderFantasyStats() {
     const list = document.getElementById('fantasy-players-list');
-    const filtered = filterAndSort('fantasy-search', 'fantasy-pos-filter', 'fantasy-team-filter', 'fantasy-sort');
-    
+    const filtered = filterAndSort('fantasy-search', 'fantasy-pos-filter', 'fantasy-team-filter', 'fantasy-sort', 'fantasy-min-price', 'fantasy-max-price');
     list.innerHTML = '';
     filtered.slice(0, 150).forEach(p => { list.innerHTML += createPlayerCardHTML(p, false); });
 }
 
 function renderMarket() {
     const list = document.getElementById('market-players-list');
-    const filtered = filterAndSort('market-search', null, 'market-team-filter', 'market-sort', currentTransferSlot.pos);
-    
+    const filtered = filterAndSort('market-search', null, 'market-team-filter', 'market-sort', 'market-min-price', 'market-max-price', currentTransferSlot.pos);
     list.innerHTML = '';
     filtered.slice(0, 50).forEach(p => { list.innerHTML += createPlayerCardHTML(p, true); });
 }
 
+// 🌟 НАЖАТИЕ НА СЛОТ КОМАНДЫ (МЕНЮ ВЫБОРА КАПИТАНА)
 document.querySelectorAll('.player-slot').forEach(slot => {
     slot.addEventListener('click', function() {
         const pos = this.getAttribute('data-pos');
         const index = parseInt(this.getAttribute('data-index'));
 
         if (myRoster[pos][index] !== null) {
-            const playerToSell = myRoster[pos][index];
-            tg.showConfirm(`Sell ${playerToSell.name} for ${playerToSell.price} FC?`, (confirmed) => {
-                if (confirmed) {
-                    balance += playerToSell.price;
+            const p = myRoster[pos][index];
+            
+            // Нативное всплывающее меню Telegram!
+            tg.showPopup({
+                title: p.name,
+                message: `Cost: ${p.price} FC\nWhat do you want to do?`,
+                buttons: [
+                    { id: "captain", type: "default", text: "Make Captain (C)" },
+                    { id: "sell", type: "destructive", text: `Sell (+${p.price} FC)` },
+                    { type: "cancel" }
+                ]
+            }, (buttonId) => {
+                if (buttonId === "sell") {
+                    balance += p.price;
                     myRoster[pos][index] = null;
+                    if (captainId === p.id) captainId = null; // Убираем кэпа при продаже
                     updateTeamUI();
+                } else if (buttonId === "captain") {
+                    captainId = p.id;
+                    updateTeamUI();
+                    tg.HapticFeedback.notificationOccurred('success');
                 }
             });
             return;
@@ -198,30 +206,24 @@ document.getElementById('close-market-btn').addEventListener('click', () => {
     document.getElementById('market-modal').style.display = 'none';
 });
 
-// 🌟 МАГИЯ ПОКУПКИ С ЛИМИТОМ КЛУБА
 window.buyPlayer = function(playerId) {
     const player = allPlayers.find(p => p.id === playerId);
     
-    // Проверка дублей
     const isAlreadyBought = ['F', 'D', 'G'].some(pos => myRoster[pos].some(p => p && p.id === playerId));
     if (isAlreadyBought) {
         tg.showAlert('Player already in your roster!');
         return;
     }
 
-    // Проверка 4 игроков из одного клуба
     let teamCount = 0;
     ['F', 'D', 'G'].forEach(pos => {
-        myRoster[pos].forEach(p => {
-            if (p && p.team === player.team) teamCount++;
-        });
+        myRoster[pos].forEach(p => { if (p && p.team === player.team) teamCount++; });
     });
     if (teamCount >= 4) {
-        tg.showAlert(`Лимит! Максимум 4 игрока из одной команды (${player.team}).`);
+        tg.showAlert(`Limit reached! Max 4 players from ${player.team}.`);
         return;
     }
 
-    // Проверка бюджета
     if (balance < player.price) {
         tg.showAlert(`Not enough FC! You need ${player.price} FC.`);
         return;
@@ -247,7 +249,11 @@ function updateTeamUI() {
                 const bgColor = teamColors[player.team] || '#1e293b';
                 const textColor = ['BOS', 'NSH', 'PIT', 'VGK'].includes(player.team) ? '#000000' : '#ffffff';
 
+                // 🌟 ДОБАВЛЯЕМ ЗНАЧОК (С) ЕСЛИ ЭТО КАПИТАН
+                const captainBadge = player.id === captainId ? `<div class="captain-badge">C</div>` : '';
+
                 domSlot.innerHTML = `
+                    ${captainBadge}
                     <div class="jersey" style="background-color: ${bgColor}; color: ${textColor}; border: 2px solid ${bgColor};">
                         ${player.team}
                     </div>
@@ -271,8 +277,12 @@ function updateTeamUI() {
     }
 }
 
-// 🌟 СОХРАНЕНИЕ В БАЗУ БЕЗ ЗАВИСАНИЙ
 document.getElementById('save-team-btn').addEventListener('click', async () => {
+    if (!captainId) {
+        tg.showAlert("⚠️ Please select a Captain (C) before saving!");
+        return; // Не даем сохранить без капитана
+    }
+
     tg.showConfirm("Submit this roster? Your changes will be saved.", async (confirmed) => {
         if (confirmed) {
             const saveBtn = document.getElementById('save-team-btn');
@@ -288,7 +298,8 @@ document.getElementById('save-team-btn').addEventListener('click', async () => {
                 const response = await fetch('/api/save_team', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId, roster_ids: rosterIds, balance: balance })
+                    // Отправляем Captain ID на бэкенд
+                    body: JSON.stringify({ user_id: userId, roster_ids: rosterIds, balance: balance, captain_id: captainId })
                 });
 
                 if (response.ok) {
@@ -299,23 +310,23 @@ document.getElementById('save-team-btn').addEventListener('click', async () => {
                 }
             } catch (err) {
                 console.error(err);
-                tg.showAlert("❌ Ошибка сохранения");
+                tg.showAlert("❌ Error saving team");
             } finally {
                 saveBtn.innerText = "Save changes";
                 saveBtn.style.background = "var(--glass-border)";
+                fetchMyTeam(); // Обновляем данные с сервера
             }
         }
     });
 });
 
-// Слушатели поиска и фильтров
-['fantasy-search', 'fantasy-pos-filter', 'fantasy-team-filter', 'fantasy-sort'].forEach(id => {
-    document.getElementById(id).addEventListener('change', renderFantasyStats);
-    document.getElementById(id).addEventListener('input', renderFantasyStats);
+['fantasy-search', 'fantasy-pos-filter', 'fantasy-team-filter', 'fantasy-sort', 'fantasy-min-price', 'fantasy-max-price'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.addEventListener('change', renderFantasyStats); el.addEventListener('input', renderFantasyStats); }
 });
-['market-search', 'market-team-filter', 'market-sort'].forEach(id => {
-    document.getElementById(id).addEventListener('change', renderMarket);
-    document.getElementById(id).addEventListener('input', renderMarket);
+['market-search', 'market-team-filter', 'market-sort', 'market-min-price', 'market-max-price'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.addEventListener('change', renderMarket); el.addEventListener('input', renderMarket); }
 });
 
 initApp();

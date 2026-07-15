@@ -55,6 +55,7 @@ async def get_my_team(user_id: int, db: AsyncSession = Depends(get_db)):
     
     return {
         "balance": member.budget,
+        "captain_id": member.captain_id,
         "roster": [{"id": r.player_id, "pos": r.player.position.name} for r in roster]
     }
 
@@ -62,6 +63,7 @@ class SaveTeamRequest(BaseModel):
     user_id: int
     roster_ids: list[int | None]
     balance: float
+    captain_id: int | None = None
 
 @router.post("/save_team")
 async def save_team(req: SaveTeamRequest, db: AsyncSession = Depends(get_db)):
@@ -101,6 +103,7 @@ async def save_team(req: SaveTeamRequest, db: AsyncSession = Depends(get_db)):
                 db.add(rp)
                 
     member.budget = req.balance
+    member.captain_id = req.captain_id
     await db.commit()
     
     return {"status": "success"}

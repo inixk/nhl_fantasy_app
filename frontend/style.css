@@ -208,3 +208,43 @@ body {
 .pts-neutral {
     color: var(--text-muted); /* Серый ноль */
 }
+
+/* Мини-кнопка Info */
+.info-small-btn {
+    background: transparent;
+    border: 1px solid var(--accent-blue);
+    color: var(--accent-blue);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    align-self: center;
+}
+
+/* Форматирование Гайда */
+.guide-content { max-height: 80vh; overflow-y: auto; text-align: left; }
+.guide-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; margin-bottom: 15px; position: sticky; top: 0; background: var(--glass-bg); z-index: 10; }
+.guide-header h2 { margin: 0; font-size: 18px; }
+.guide-body h3 { color: var(--accent-blue); margin-top: 15px; margin-bottom: 5px; font-size: 15px; }
+.guide-body p, .guide-body ul { font-size: 13px; color: #cbd5e1; line-height: 1.4; margin-top: 0; }
+
+/* Фильтр Диапазона цен */
+.price-range-group { display: flex; gap: 10px; margin-bottom: 12px; }
+.half-input { width: 50%; margin-bottom: 0; }
+
+/* Значок Капитана */
+.captain-badge {
+    position: absolute;
+    top: -5px; right: -5px;
+    background: #FFD700; color: #000;
+    font-weight: 900; font-size: 12px;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    display: flex; justify-content: center; align-items: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    border: 1px solid #fff;
+    z-index: 5;
+}
+.player-slot { position: relative; } /* Нужно для позиционирования бейджа */
