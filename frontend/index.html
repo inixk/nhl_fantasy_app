@@ -66,14 +66,14 @@
             <div class="filters-container">
                 <input type="text" id="market-search" placeholder="Player..." class="glass-input">
                 <div class="price-range-group">
-                    <input type="number" id="market-min-price" placeholder="Min FC" class="glass-input half-input">
-                    <input type="number" id="market-max-price" placeholder="Max FC" class="glass-input half-input">
+                    <input type="number" id="market-min-price" placeholder="Min FC" class="glass-input half-input" step="10">
+                    <input type="number" id="market-max-price" placeholder="Max FC" class="glass-input half-input" step="10">
                 </div>
                 <div class="sort-group">
                     <select id="market-team-filter" class="glass-select" style="width: 48%"><option value="ALL">All Teams</option></select>
                     <select id="market-sort" class="glass-select" style="width: 48%">
-                        <option value="points_desc">📈 FC Рост (+)</option>
-                        <option value="points_asc">📉 FC Падение (-)</option>
+                        <option value="points_desc">📈 FC (+)</option>
+                        <option value="points_asc">📉 FC (-)</option>
                         <option value="price_desc">💰 Дорогие</option>
                         <option value="price_asc">🏷 Дешевые</option>
                     </select>
@@ -93,7 +93,7 @@
                     <div class="transfers-box">Changes: <span id="current-changes">6</span>/6</div>
                 </div>
                 <!-- 🌟 МАЛЕНЬКАЯ АККУРАТНАЯ КНОПКА INFO -->
-                <button id="info-btn" class="info-small-btn">ℹ️ Guide</button>
+                <button id="info-btn" class="info-small-btn">ℹ️ Info</button>
             </div>
 
             <!-- Площадка -->
@@ -116,9 +116,56 @@
 
         <!-- ВКЛАДКА 2: NHL STATS -->
         <div id="tab-stats" class="tab-content">
-            <div class="glass-panel title-panel">
-                <h2>NHL STATS 📊</h2><p>Coming soon...</p>
+            
+            <!-- Внутреннее меню NHL STATS -->
+            <div class="stats-subnav">
+                <div class="stats-tab active" data-target="stats-standings">Таблицы</div>
+                <div class="stats-tab" data-target="stats-leaders">Топ-20</div>
+                <div class="stats-tab" data-target="stats-scores">Матчи</div>
             </div>
+
+            <!-- БЛОК 1: ТАБЛИЦЫ -->
+            <div id="stats-standings" class="stats-section active">
+                <div class="filters-container glass-panel" style="padding: 10px; margin-bottom: 15px; border-radius: 12px;">
+                    <select id="standings-type" class="glass-select" style="margin-bottom: 0;">
+                        <option value="division">По Дивизионам</option>
+                        <option value="conference">По Конференциям</option>
+                        <option value="league">Вся Лига</option>
+                    </select>
+                </div>
+                <div id="standings-table-container" class="players-scroll-list" style="padding: 0;">
+                    <div class="loading-text">Загрузка таблиц...</div>
+                </div>
+            </div>
+
+<!-- БЛОК 2: ЛИДЕРЫ -->
+            <div id="stats-leaders" class="stats-section" style="display: none;">
+                <div class="filters-container glass-panel" style="padding: 10px; margin-bottom: 15px; border-radius: 12px;">
+                    <select id="leaders-type" class="glass-select" style="margin-bottom: 0;">
+                        <option value="points">🔥 Бомбардиры</option>
+                        <option value="goals">🎯 Снайперы</option>
+                        <option value="assists">🤝 Ассистенты</option>
+                        <option value="sv_pct">🧱 Вратари (%ОБ)</option>
+                        <option value="gaa">🛡 Вратари (КН)</option>
+                        <option value="russians">🏒Наши</option>
+                    </select>
+                </div>
+                <div id="leaders-table-container" class="players-scroll-list" style="padding: 0;">
+                    <div class="loading-text">Выберите категорию...</div>
+                </div>
+            </div>
+
+<!-- БЛОК 3: МАТЧИ (Результаты и Календарь) -->
+            <div id="stats-scores" class="stats-section" style="display: none;">
+                <div class="filters-container glass-panel" style="padding: 10px; margin-bottom: 15px; border-radius: 12px; display: flex; gap: 10px; align-items: center;">
+                    <label style="font-weight: bold; color: var(--text-muted);">Дата:</label>
+                    <input type="date" id="scores-date-picker" class="glass-input" style="margin: 0; padding: 10px;">
+                </div>
+                <div id="scores-list-container" class="players-scroll-list" style="padding: 0;">
+                    <div class="loading-text">Загрузка матчей...</div>
+                </div>
+            </div>
+
         </div>
 
         <!-- ВКЛАДКА 3: FANTASY STATS -->
@@ -126,8 +173,8 @@
             <div class="filters-container glass-panel" style="margin-bottom: 15px; border-radius: 16px;">
                 <input type="text" id="fantasy-search" placeholder="Player..." class="glass-input">
                 <div class="price-range-group">
-                    <input type="number" id="fantasy-min-price" placeholder="Min FC" class="glass-input half-input">
-                    <input type="number" id="fantasy-max-price" placeholder="Max FC" class="glass-input half-input">
+                    <input type="number" id="fantasy-min-price" placeholder="Min FC" class="glass-input half-input" step="10">
+                    <input type="number" id="fantasy-max-price" placeholder="Max FC" class="glass-input half-input" step="10">
                 </div>
                 <div class="sort-group">
                     <select id="fantasy-pos-filter" class="glass-select" style="width: 30%">
@@ -135,8 +182,8 @@
                     </select>
                     <select id="fantasy-team-filter" class="glass-select" style="width: 35%"><option value="ALL">Team</option></select>
                     <select id="fantasy-sort" class="glass-select" style="width: 30%">
-                        <option value="points_desc">📈 FC Рост (+)</option>
-                        <option value="points_asc">📉 FC Падение (-)</option>
+                        <option value="points_desc">📈 FC (+)</option>
+                        <option value="points_asc">📉 FC (-)</option>
                         <option value="price_desc">💰 Дорогие</option>
                         <option value="price_asc">🏷 Дешевые</option>
                     </select>

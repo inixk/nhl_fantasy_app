@@ -92,9 +92,7 @@ async def populate():
             player.fantasy_points = points
             player.games_played = gp
             
-             # 🌟 ВОЗВРАЩАЕМ ИНДЕКСАЦИЮ! (Множитель 4.5)
-            # Округляем до десятков (например 4635 -> 4640)
-            calculated_price = expected_season_pts * 4.5
+            calculated_price = expected_season_pts * 1.1
             player.price = max(250.0, round(calculated_price / 10) * 10)  
             
         await session.commit()

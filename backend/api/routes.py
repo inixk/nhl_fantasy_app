@@ -1,4 +1,5 @@
 # backend/api/routes.py
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
@@ -7,6 +8,9 @@ from pydantic import BaseModel
 
 from backend.database.engine import async_session
 from backend.database.models import NHLPlayer, LeagueMember, RosterPlayer, League, User
+
+# 🌟 ИМПОРТ API НХЛ ДЛЯ ТАБЛИЦ
+from backend.services.nhl_api import nhl_api
 
 router = APIRouter()
 
@@ -39,17 +43,14 @@ async def get_players(position: str = None, db: AsyncSession = Depends(get_db)):
 
 @router.get("/my_team")
 async def get_my_team(user_id: int, db: AsyncSession = Depends(get_db)):
-    # Загружаем состав ВМЕСТЕ с данными игроков (selectinload), чтобы узнать их позицию
     res_member = await db.execute(select(LeagueMember).where(LeagueMember.user_id == user_id))
     member = res_member.scalar_one_or_none()
     
     if not member:
-        return {"balance": 10000.0, "roster": []}
+        return {"balance": 10000.0, "roster": [], "captain_id": None}
 
     res_roster = await db.execute(
-        select(RosterPlayer)
-        .options(selectinload(RosterPlayer.player))
-        .where(RosterPlayer.member_id == member.id)
+        select(RosterPlayer).options(selectinload(RosterPlayer.player)).where(RosterPlayer.member_id == member.id)
     )
     roster = res_roster.scalars().all()
     
@@ -94,12 +95,7 @@ async def save_team(req: SaveTeamRequest, db: AsyncSession = Depends(get_db)):
         if pid is not None:
             player = await db.get(NHLPlayer, pid)
             if player:
-                # 🌟 БАГ ПОФИКШЕН: Убрали roster_position
-                rp = RosterPlayer(
-                    member_id=member.id,
-                    player_id=player.id,
-                    acquired_price=player.price
-                )
+                rp = RosterPlayer(member_id=member.id, player_id=player.id, acquired_price=player.price)
                 db.add(rp)
                 
     member.budget = req.balance
@@ -107,3 +103,169 @@ async def save_team(req: SaveTeamRequest, db: AsyncSession = Depends(get_db)):
     await db.commit()
     
     return {"status": "success"}
+
+# 🌟 НАШ НОВЫЙ ЭНДПОИНТ ДЛЯ ТАБЛИЦ НХЛ
+@router.get("/nhl/standings")
+async def get_nhl_standings():
+    """Возвращает актуальную таблицу НХЛ (проксируем оригинальное API)"""
+    data = await nhl_api.get_standings()
+    if not data or "standings" not in data:
+        raise HTTPException(status_code=500, detail="Failed to fetch standings")
+    return data["standings"]
+
+from datetime import datetime
+
+@router.get("/nhl/leaders")
+async def get_nhl_leaders(category: str):
+    """Отдает списки Топ-20 по выбранной категории"""
+    now = datetime.utcnow()
+    season = f"{now.year}{now.year+1}" if now.month >= 9 else f"{now.year-1}{now.year}"
+    
+    if category == "points":
+        return await nhl_api.get_skater_stats(season, "points")
+    elif category == "goals":
+        return await nhl_api.get_skater_stats(season, "goals")
+    elif category == "assists":
+        return await nhl_api.get_skater_stats(season, "assists")
+    elif category == "russians":
+        return await nhl_api.get_skater_stats(season, "points", nationalities=["RUS", "BLR"])
+    elif category == "sv_pct":
+        return await nhl_api.get_goalie_stats(season, "savePct")
+    elif category == "gaa":
+        return await nhl_api.get_goalie_stats(season, "goalsAgainstAverage")
+    
+    return []
+
+@router.get("/nhl/scores")
+async def get_nhl_scores(date: str = "now"):
+    """Возвращает матчи на выбранную дату с авторами голов, вратарями и Тремя звездами"""
+    schedule = await nhl_api.get_schedule(date)
+    if not schedule or "gameWeek" not in schedule:
+        return []
+        
+    target_games = []
+    for day in schedule["gameWeek"]:
+        if date == "now" or day["date"] == date:
+            target_games = day.get("games", [])
+            break
+            
+    if not target_games:
+        return []
+        
+    async def fetch_game_details(game):
+        g_id = game["id"]
+        state = game.get("gameState", "")
+        home = game.get("homeTeam", {}).get("abbrev", "TBD")
+        away = game.get("awayTeam", {}).get("abbrev", "TBD")
+        home_score = game.get("homeTeam", {}).get("score", 0)
+        away_score = game.get("awayTeam", {}).get("score", 0)
+        
+        status = "Scheduled"
+        if state in ("LIVE", "CRIT"):
+            period = game.get("periodDescriptor", {}).get("number", 0)
+            clock = game.get("clock", {}).get("timeRemaining", "")
+            status = f"🔴 P{period} {clock}"
+        elif state in ("FINAL", "OFF"):
+            status = "✅ FINAL"
+            
+        game_data = {
+            "id": g_id, "home": home, "away": away,
+            "home_score": home_score, "away_score": away_score,
+            "status": status, "startTimeUTC": game.get("startTimeUTC", ""),
+            "goals": [], "goalies": [], "three_stars": [] # 🌟 ДОБАВЛЕН НОВЫЙ КЛЮЧ
+        }
+        
+        if state in ("LIVE", "CRIT", "FINAL", "OFF"):
+            boxscore, landing = await asyncio.gather(
+                nhl_api.get_game_boxscore(g_id),
+                nhl_api.get_game_landing(g_id)
+            )
+            
+            if landing and "summary" in landing:
+                # ПАРСИНГ ГОЛОВ
+                if "scoring" in landing["summary"]:
+                    for p in landing["summary"]["scoring"]:
+                        period_name = p.get("periodDescriptor", {}).get("periodType", "")
+                        period_num = p.get("periodDescriptor", {}).get("number", 0)
+                        
+                        if period_name == "OT": p_title = "Овертайм"
+                        elif period_name == "SO": p_title = "Буллиты"
+                        else: p_title = f"{period_num} Период"
+                            
+                        goals_list = p.get("goals", [])
+                        if goals_list:
+                            game_data["goals"].append(f"<div class='period-divider'>{p_title}</div>")
+                            for g in goals_list:
+                                team_dict = g.get("teamAbbrev", {})
+                                team_abbrev = team_dict.get("default", "TBD") if isinstance(team_dict, dict) else team_dict
+                                time = g.get("timeInPeriod", "00:00")
+                                
+                                name_dict = g.get("name", {})
+                                if isinstance(name_dict, dict) and "default" in name_dict:
+                                    scorer = name_dict["default"]
+                                else:
+                                    s_first = g.get("firstName", {}).get("default", "")
+                                    s_last = g.get("lastName", {}).get("default", "")
+                                    scorer = f"{s_first[0]}. {s_last}" if s_first else (s_last or "Unknown")
+                                
+                                assists = []
+                                for a in g.get("assists", []):
+                                    a_name_dict = a.get("name", {})
+                                    if isinstance(a_name_dict, dict) and "default" in a_name_dict:
+                                        assists.append(a_name_dict["default"])
+                                    else:
+                                        a_first = a.get("firstName", {}).get("default", "")
+                                        a_last = a.get("lastName", {}).get("default", "")
+                                        assists.append(f"{a_first[0]}. {a_last}" if a_first else a_last)
+                                
+                                ast_str = f" ({', '.join(assists)})" if assists else ""
+                                game_data["goals"].append(f"<b>{team_abbrev}</b> {time} - {scorer}{ast_str}")
+                
+                # 🌟 ПАРСИНГ ТРЕХ ЗВЕЗД
+                if "threeStars" in landing["summary"]:
+                    for star in landing["summary"]["threeStars"]:
+                        star_num = star.get("star", "?")
+                        team_abbrev = star.get("teamAbbrev", "TBD")
+                        
+                        name_dict = star.get("name", {})
+                        if isinstance(name_dict, dict) and "default" in name_dict:
+                            star_name = name_dict["default"]
+                        else:
+                            s_first = star.get("firstName", {}).get("default", "")
+                            s_last = star.get("lastName", {}).get("default", "")
+                            star_name = f"{s_first[0]}. {s_last}" if s_first else (s_last or "Unknown")
+                            
+                        # Если 1-я звезда, рисуем 3 эмодзи, если 2-я - два и т.д.
+                        icons = "⭐" * (4 - int(star_num)) if str(star_num).isdigit() else "⭐"
+                        game_data["three_stars"].append(f"{icons} <b>{star_name}</b> ({team_abbrev})")
+
+            # ПАРСИНГ ВРАТАРЕЙ
+            if boxscore and "playerByGameStats" in boxscore:
+                for team_key, t_abbr in [("awayTeam", away), ("homeTeam", home)]:
+                    goalies = boxscore["playerByGameStats"].get(team_key, {}).get("goalies", [])
+                    for go in goalies:
+                        name_dict = go.get("name", {})
+                        if isinstance(name_dict, dict) and "default" in name_dict:
+                            g_name = name_dict["default"]
+                        else:
+                            g_first = go.get("firstName", {}).get("default", "")
+                            g_last = go.get("lastName", {}).get("default", "")
+                            g_name = f"{g_first[0]}. {g_last}" if g_first else (g_last or "Unknown")
+                            
+                        sa = go.get("shotsAgainst", 0)
+                        sv = go.get("saves", 0)
+                        sv_pct = go.get("savePctg", "0.000")
+                        
+                        try:
+                            sv_pct_str = f"{float(sv_pct):.3f}"
+                        except:
+                            sv_pct_str = "0.000"
+                            
+                        if sa > 0 or go.get("timeOnIce", "00:00") != "00:00":
+                            game_data["goalies"].append(f"<b>{t_abbr}</b> {g_name}: {sv}/{sa} SV ({sv_pct_str})")
+                            
+        return game_data
+        
+    tasks = [fetch_game_details(g) for g in target_games]
+    results = await asyncio.gather(*tasks)
+    return results

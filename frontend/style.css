@@ -211,9 +211,9 @@ body {
 
 /* Мини-кнопка Info */
 .info-small-btn {
-    background: transparent;
-    border: 1px solid var(--accent-blue);
-    color: var(--accent-blue);
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: #ffffff;
     padding: 6px 12px;
     border-radius: 20px;
     font-size: 13px;
@@ -224,9 +224,28 @@ body {
 }
 
 /* Форматирование Гайда */
-.guide-content { max-height: 80vh; overflow-y: auto; text-align: left; }
-.guide-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; margin-bottom: 15px; position: sticky; top: 0; background: var(--glass-bg); z-index: 10; }
+.guide-content { 
+    max-height: 80vh; 
+    display: flex; 
+    flex-direction: column; 
+    overflow: hidden; /* Убираем скролл со всего окна */
+    padding: 20px 20px 5px 20px; 
+}
+.guide-header { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    border-bottom: 1px solid var(--glass-border); 
+    padding-bottom: 15px; 
+    margin-bottom: 15px; 
+    flex-shrink: 0; /* Шапка не сжимается и всегда остается наверху */
+}
 .guide-header h2 { margin: 0; font-size: 18px; }
+.guide-body { 
+    overflow-y: auto; /* Скроллится ТОЛЬКО сам текст */
+    text-align: left; 
+    padding-right: 5px; /* Отступ справа, чтобы текст не прилипал к рамке при скролле */
+}
 .guide-body h3 { color: var(--accent-blue); margin-top: 15px; margin-bottom: 5px; font-size: 15px; }
 .guide-body p, .guide-body ul { font-size: 13px; color: #cbd5e1; line-height: 1.4; margin-top: 0; }
 
@@ -248,3 +267,82 @@ body {
     z-index: 5;
 }
 .player-slot { position: relative; } /* Нужно для позиционирования бейджа */
+
+/* --- Внутреннее меню NHL STATS --- */
+.stats-subnav {
+    display: flex;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 15px;
+    border: 1px solid var(--glass-border);
+}
+.stats-tab {
+    flex: 1; text-align: center; padding: 8px 0; font-size: 13px;
+    font-weight: 600; color: var(--text-muted); border-radius: 8px;
+    transition: 0.2s; cursor: pointer;
+}
+.stats-tab.active {
+    background: var(--glass-bg); color: var(--text-main);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2); border: 1px solid var(--glass-border);
+}
+
+/* --- Стили Таблиц НХЛ --- */
+.standings-table {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+    background: var(--glass-bg); border-radius: 12px; overflow: hidden;
+    border: 1px solid var(--glass-border); margin-bottom: 20px;
+}
+.standings-table th {
+    background: rgba(0,0,0,0.3); padding: 10px 5px; color: var(--text-muted);
+    font-weight: 600; text-align: right;
+}
+.standings-table th:nth-child(1), .standings-table th:nth-child(2) { text-align: left; }
+.standings-table td { padding: 10px 5px; text-align: right; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.standings-table td:nth-child(1), .standings-table td:nth-child(2) { text-align: left; }
+
+.team-cell { display: flex; align-items: center; gap: 8px; font-weight: bold;}
+.team-logo { width: 20px; height: 20px; object-fit: contain; }
+
+.section-header {
+    font-size: 16px; font-weight: bold; margin: 15px 0 10px 5px; color: var(--accent-blue);
+}
+
+/* 🌟 Подсветка зоны Плей-Офф */
+.playoff-spot td { background-color: rgba(46, 204, 113, 0.08); }
+.playoff-spot td:first-child { border-left: 3px solid var(--accent-green); }
+
+/* Карточка матча (Scores) */
+.match-card {
+    background: var(--glass-bg); border: 1px solid var(--glass-border);
+    border-radius: 16px; padding: 15px; margin-bottom: 15px;
+}
+.match-header {
+    text-align: center; font-size: 13px; font-weight: bold; color: var(--text-muted);
+    border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px; margin-bottom: 10px;
+}
+.match-teams { display: flex; justify-content: space-around; align-items: center; margin-bottom: 15px; }
+.match-team { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 800; width: 40%; }
+.match-team.away { justify-content: flex-end; }
+.match-team.home { justify-content: flex-start; }
+.match-score { font-size: 24px; font-weight: 900; color: white; padding: 0 15px; }
+
+.match-details { font-size: 12px; color: #cbd5e1; line-height: 1.6; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 10px; }
+.match-details-title { font-weight: bold; color: var(--accent-blue); margin-bottom: 5px; margin-top: 5px;}
+.match-details-title:first-child { margin-top: 0; }
+
+/* Разделитель периодов в скорборде */
+.period-divider {
+    color: var(--text-hint);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 10px;
+    margin-bottom: 2px;
+    border-bottom: 1px dashed rgba(255,255,255,0.1);
+    padding-bottom: 2px;
+}
+.period-divider:first-child {
+    margin-top: 0;
+}
