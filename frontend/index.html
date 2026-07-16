@@ -8,7 +8,8 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="welcome-modal" class="modal-overlay">
+    <!-- ПРИВЕТСТВЕННОЕ ОКНО -->
+    <div id="welcome-modal" class="modal-overlay" style="display: none;">
         <div class="glass-panel modal-content">
             <h2 id="greeting">Welcome! 🏒</h2>
             <p>Build a team of 17 NHL stars, manage your <b class="highlight">10 000 FC</b> budget, and become the best GM!</p>
@@ -25,11 +26,11 @@
                 <button id="close-info-btn" class="icon-btn">✕</button>
             </div>
             <div class="guide-body">
-                <h3>📌 Базовый концепт</h3><p>Модель <b>"Накопительной экономики" (Bull Market)</b>.</p><ul><li>1 Фэнтэзи-Балл = 1 Fantasy-Coin (FC).</li><li>Игроки растут или падают в цене от результатов.</li><li>Все 17 игроков активны и приносят очки.</li></ul>
+                <h3>📌 Базовый концепт</h3><p>Модель <b>"Накопительной экономики" (Bull Market)</b>.</p><ul><li>1 Фэнтэзи-Балл = 1 Fantasy-Coin (FC).</li><li>Игроки растут или падают в цене от результатов.</li><li>Все 17 игроков активны.</li></ul>
                 <h3>💰 Бюджет</h3><p><b>Стартовый баланс:</b> 10 000 FC.</p><p><b>Новички:</b> Стартуют со средним капиталом лиги * 0.95.</p>
                 <h3>🏒 Состав (17 игроков)</h3><p><b>9 Нападающих (F)</b>, <b>6 Защитников (D)</b>, <b>2 Вратаря (G)</b>. Максимум 4 игрока из одного клуба.</p>
-                <h3>🔄 Замены (Трансферы)</h3><p><b>6 замен</b> на неделю. 🔒 <b>Player Lock:</b> Игроков нельзя продать/купить во время их матча.</p>
-                <h3>⭐️ Капитан (х2 Очков)</h3><p>Выбирается 1 раз на неделю. Все очки удваиваются!</p>
+                <h3>🔄 Замены</h3><p><b>6 замен</b> на неделю. 🔒 <b>Player Lock:</b> Игроков нельзя продать/купить во время их матча.</p>
+                <h3>⭐️ Капитан (х2)</h3><p>Выбирается 1 раз на неделю. Все очки удваиваются!</p>
                 <h3>📊 Очки</h3><p><b>Полевые:</b> Гол +8, Пас +4, +/- (+1/-1), Броски/Хиты/Блоки +0.2, Победа +2. Минусы за штраф.</p><p><b>Вратари:</b> Сэйв +0.4, Пропущенная -1.5, Сухарь +10, Победа +6, Пас +10.</p>
             </div>
         </div>
@@ -51,7 +52,10 @@
                 <div class="sort-group">
                     <select id="market-team-filter" class="glass-select" style="width: 48%"><option value="ALL">All Teams</option></select>
                     <select id="market-sort" class="glass-select" style="width: 48%">
-                        <option value="points_desc">📈 PTS (+)</option><option value="points_asc">📉 PTS (-)</option><option value="price_desc">💰 Дорогие</option><option value="price_asc">🏷 Дешевые</option>
+                        <option value="points_desc">📈 PTS (+)</option>
+                        <option value="points_asc">📉 PTS (-)</option>
+                        <option value="price_desc">💰 Дорогие</option>
+                        <option value="price_asc">🏷 Дешевые</option>
                     </select>
                 </div>
             </div>
@@ -78,6 +82,7 @@
         <div class="glass-panel modal-content">
             <h2>Создать Лигу 🏆</h2>
             <input type="text" id="create-league-name" class="glass-input" placeholder="Название лиги..." maxlength="30" style="margin-top: 15px;">
+            <input type="text" id="create-team-name" class="glass-input" placeholder="Название вашей команды..." maxlength="30">
             <div style="display: flex; gap: 10px; margin-top: 15px;">
                 <button id="cancel-create-league" class="glass-btn" style="background: rgba(255,255,255,0.1);">Отмена</button>
                 <button id="confirm-create-league" class="glass-btn primary-btn">Создать</button>
@@ -90,6 +95,7 @@
         <div class="glass-panel modal-content">
             <h2>Вступить в Лигу 🤝</h2>
             <input type="text" id="join-league-code" class="glass-input" placeholder="Введите Invite Code..." maxlength="10" style="text-transform: uppercase; margin-top: 15px;">
+            <input type="text" id="join-team-name" class="glass-input" placeholder="Название вашей команды..." maxlength="30">
             <div style="display: flex; gap: 10px; margin-top: 15px;">
                 <button id="cancel-join-league" class="glass-btn" style="background: rgba(255,255,255,0.1);">Отмена</button>
                 <button id="confirm-join-league" class="glass-btn primary-btn">Вступить</button>
@@ -129,13 +135,13 @@
 
         <!-- ВКЛАДКА 2: NHL STATS -->
         <div id="tab-stats" class="tab-content">
-            <div class="stats-subnav">
-                <div class="stats-tab active" data-target="stats-standings">Таблицы</div>
-                <div class="stats-tab" data-target="stats-leaders">Топ-20</div>
-                <div class="stats-tab" data-target="stats-scores">Матчи</div>
+            <div class="segmented-control">
+                <div class="segment-tab active" data-target="stats-standings" data-group="stats">Таблицы</div>
+                <div class="segment-tab" data-target="stats-leaders" data-group="stats">Топ-20</div>
+                <div class="segment-tab" data-target="stats-scores" data-group="stats">Матчи</div>
             </div>
 
-            <div id="stats-standings" class="stats-section active">
+            <div id="stats-standings" class="sub-section active" data-group="stats">
                 <div class="filters-container glass-panel" style="padding: 10px; margin-bottom: 15px; border-radius: 12px;">
                     <select id="standings-type" class="glass-select" style="margin-bottom: 0;">
                         <option value="division">По Дивизионам</option>
@@ -146,7 +152,7 @@
                 <div id="standings-table-container" class="players-scroll-list" style="padding: 0;"></div>
             </div>
 
-            <div id="stats-leaders" class="stats-section" style="display: none;">
+            <div id="stats-leaders" class="sub-section" data-group="stats" style="display: none;">
                 <div class="filters-container glass-panel" style="padding: 10px; margin-bottom: 15px; border-radius: 12px;">
                     <select id="leaders-type" class="glass-select" style="margin-bottom: 0;">
                         <option value="points">🔥 Бомбардиры (Очки)</option>
@@ -160,7 +166,7 @@
                 <div id="leaders-table-container" class="players-scroll-list" style="padding: 0;"></div>
             </div>
 
-            <div id="stats-scores" class="stats-section" style="display: none;">
+            <div id="stats-scores" class="sub-section" data-group="stats" style="display: none;">
                 <div class="filters-container glass-panel" style="padding: 10px; margin-bottom: 15px; border-radius: 12px; display: flex; gap: 10px; align-items: center;">
                     <label style="font-weight: bold; color: var(--text-muted);">Дата:</label>
                     <input type="date" id="scores-date-picker" class="glass-input" style="margin: 0; padding: 10px;">
@@ -185,22 +191,24 @@
                     </select>
                 </div>
             </div>
-            <div id="fantasy-players-list"></div>
+            <div id="fantasy-players-list" class="players-scroll-list"></div>
         </div>
 
         <!-- ВКЛАДКА 4: LEAGUES -->
         <div id="tab-leagues" class="tab-content">
-            <div class="stats-subnav">
-                <div class="league-tab active" data-target="leagues-general">🌍 Общий зачет</div>
-                <div class="league-tab" data-target="leagues-private">🤝 Мои лиги</div>
+            <div class="segmented-control">
+                <div class="segment-tab active" data-target="leagues-general" data-group="leagues">🌍 Общий зачет</div>
+                <div class="segment-tab" data-target="leagues-private" data-group="leagues">🤝 Мои лиги</div>
             </div>
-            <div id="leagues-general" class="league-section active">
-                <div class="glass-panel" style="padding: 0; display: flex; flex-direction: column; height: 68vh; overflow: hidden; border-radius: 16px;">
+
+            <div id="leagues-general" class="sub-section active" data-group="leagues">
+                <div class="glass-panel" style="padding: 0; display: flex; flex-direction: column; height: 65vh; overflow: hidden; border-radius: 16px;">
                     <div id="general-leaderboard-list" class="players-scroll-list" style="padding: 10px;"></div>
                     <div id="general-my-rank" class="my-rank-sticky" style="display: none;"></div>
                 </div>
             </div>
-            <div id="leagues-private" class="league-section" style="display: none;">
+
+            <div id="leagues-private" class="sub-section" data-group="leagues" style="display: none;">
                 <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                     <button class="glass-btn primary-btn" id="btn-show-create-league" style="font-size: 14px; padding: 12px;">➕ Создать</button>
                     <button class="glass-btn" id="btn-show-join-league" style="font-size: 14px; padding: 12px; background: rgba(255,255,255,0.1);">🔗 Вступить</button>
@@ -214,11 +222,11 @@
     <!-- НИЖНЕЕ МЕНЮ -->
     <div class="bottom-nav">
         <div class="nav-item active" data-target="tab-team">🏒 TEAM</div>
-        <div class="nav-item" data-target="tab-stats">📊 NHL</div>
-        <div class="nav-item" data-target="tab-fantasy">🛒 FANTASY</div>
+        <div class="nav-item" data-target="tab-stats">📊 NHL STATS</div>
+        <div class="nav-item" data-target="tab-fantasy">🛒 FANTASY STATS</div>
         <div class="nav-item" data-target="tab-leagues">🏆 LEAGUES</div>
     </div>
 
-    <script src="app.js?v=4"></script>
+    <script src="app.js?v=8"></script>
 </body>
 </html>

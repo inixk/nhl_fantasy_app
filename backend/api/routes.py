@@ -25,17 +25,7 @@ class SaveTeamRequest(BaseModel):
     roster_ids: list[int | None]
     balance: float
     captain_id: int | None = None
-
-class CreateLeagueRequest(BaseModel):
-    user_id: int
-    user_name: str
-    name: str
-
-class JoinLeagueRequest(BaseModel):
-    user_id: int
-    user_name: str
-    invite_code: str
-
+    
 # Вспомогательная функция для обновления юзера
 async def get_or_create_user(db: AsyncSession, user_id: int, user_name: str):
     user = await db.get(User, user_id)
@@ -179,8 +169,24 @@ async def get_nhl_leaders(category: str):
     elif category == "gaa": return await nhl_api.get_goalie_stats(season, "goalsAgainstAverage")
     return []
 
-# --- ЛИГИ ---
+# ==========================================
+# 🏆 ЭНДПОИНТЫ ДЛЯ ЛИГ (LEAGUES)
+# ==========================================
+
+class CreateLeagueRequest(BaseModel):
+    user_id: int
+    user_name: str
+    name: str
+    team_name: str # 🌟 НОВОЕ ПОЛЕ
+
+class JoinLeagueRequest(BaseModel):
+    user_id: int
+    user_name: str
+    invite_code: str
+    team_name: str # 🌟 НОВОЕ ПОЛЕ
+
 def generate_invite_code(length=8):
+    import random, string
     return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(length))
 
 @router.get("/leagues/general")
@@ -188,11 +194,25 @@ async def get_general_leaderboard(user_id: int, db: AsyncSession = Depends(get_d
     res_league = await db.execute(select(League).where(League.is_global == True))
     global_league = res_league.scalar_one_or_none()
     if not global_league: return {"leaderboard": [], "user_rank": None}
-    res_members = await db.execute(select(LeagueMember, User).join(User, LeagueMember.user_id == User.id).where(LeagueMember.league_id == global_league.id).order_by(desc(LeagueMember.total_points)))
+    
+    res_members = await db.execute(
+        select(LeagueMember, User).join(User, LeagueMember.user_id == User.id)
+        .where(LeagueMember.league_id == global_league.id).order_by(desc(LeagueMember.total_points))
+    )
+    
     leaderboard, user_rank = [], None
     for rank, (member, user) in enumerate(res_members, start=1):
-        if member.user_id == user_id: user_rank = {"rank": rank, "name": user.display_name, "points": member.total_points}
-        if rank <= 100: leaderboard.append({"rank": rank, "name": user.display_name, "points": member.total_points, "is_me": member.user_id == user_id})
+        # Если юзер не менял название команды, показываем Team + его Имя
+        team_name = member.team_name if member.team_name != "My Team" else f"{user.display_name}'s Team"
+        
+        if member.user_id == user_id: 
+            user_rank = {"rank": rank, "name": team_name, "manager": user.display_name, "points": member.total_points}
+            
+        if rank <= 100: 
+            leaderboard.append({
+                "rank": rank, "name": team_name, "manager": user.display_name, 
+                "points": member.total_points, "is_me": member.user_id == user_id
+            })
     return {"leaderboard": leaderboard, "user_rank": user_rank}
 
 @router.get("/leagues/my")
@@ -206,10 +226,13 @@ async def create_league(req: CreateLeagueRequest, db: AsyncSession = Depends(get
     invite_code = generate_invite_code()
     while (await db.execute(select(League).where(League.invite_code == invite_code))).scalar_one_or_none():
         invite_code = generate_invite_code()
+        
     new_league = League(name=req.name, invite_code=invite_code, is_global=False)
     db.add(new_league)
     await db.flush()
-    db.add(LeagueMember(league_id=new_league.id, user_id=req.user_id))
+    
+    # 🌟 СОХРАНЯЕМ НАЗВАНИЕ КОМАНДЫ
+    db.add(LeagueMember(league_id=new_league.id, user_id=req.user_id, team_name=req.team_name))
     await db.commit()
     return {"status": "success", "league_id": new_league.id, "invite_code": invite_code}
 
@@ -219,14 +242,25 @@ async def join_league(req: JoinLeagueRequest, db: AsyncSession = Depends(get_db)
     res_league = await db.execute(select(League).where(League.invite_code == req.invite_code.upper()))
     league = res_league.scalar_one_or_none()
     if not league: raise HTTPException(status_code=404, detail="Лига не найдена.")
+    
     res_member = await db.execute(select(LeagueMember).where(LeagueMember.league_id == league.id, LeagueMember.user_id == req.user_id))
     if res_member.scalar_one_or_none(): raise HTTPException(status_code=400, detail="Вы уже в этой лиге!")
-    db.add(LeagueMember(league_id=league.id, user_id=req.user_id))
+    
+    # 🌟 СОХРАНЯЕМ НАЗВАНИЕ КОМАНДЫ
+    db.add(LeagueMember(league_id=league.id, user_id=req.user_id, team_name=req.team_name))
     await db.commit()
     return {"status": "success", "league_name": league.name}
 
 @router.get("/leagues/{league_id}/leaderboard")
 async def get_league_leaderboard(league_id: int, user_id: int, db: AsyncSession = Depends(get_db)):
-    res_members = await db.execute(select(LeagueMember, User).join(User, LeagueMember.user_id == User.id).where(LeagueMember.league_id == league_id).order_by(desc(LeagueMember.total_points)))
-    leaderboard = [{"rank": rank, "name": user.display_name, "points": member.total_points, "is_me": member.user_id == user_id} for rank, (member, user) in enumerate(res_members, start=1)]
+    res_members = await db.execute(
+        select(LeagueMember, User).join(User, LeagueMember.user_id == User.id)
+        .where(LeagueMember.league_id == league_id).order_by(desc(LeagueMember.total_points))
+    )
+    leaderboard = []
+    for rank, (member, user) in enumerate(res_members, start=1):
+        leaderboard.append({
+            "rank": rank, "name": member.team_name, "manager": user.display_name, 
+            "points": member.total_points, "is_me": member.user_id == user_id
+        })
     return {"leaderboard": leaderboard}
