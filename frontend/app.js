@@ -1,4 +1,5 @@
 const tg = window.Telegram.WebApp;
+const userName = user?.first_name || 'Менеджер';
 tg.expand();
 
 let allPlayers = [];
@@ -302,8 +303,7 @@ document.getElementById('save-team-btn').addEventListener('click', async () => {
                 const response = await fetch('/api/save_team', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    // Отправляем Captain ID на бэкенд
-                    body: JSON.stringify({ user_id: userId, roster_ids: rosterIds, balance: balance, captain_id: captainId })
+                    body: JSON.stringify({ user_id: userId, user_name: userName, roster_ids: rosterIds, balance: balance, captain_id: captainId })
                 });
 
                 if (response.ok) {
@@ -725,7 +725,7 @@ document.getElementById('confirm-create-league').addEventListener('click', async
         const res = await fetch('/api/leagues/create', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, name: name })
+            body: JSON.stringify({ user_id: userId, user_name: userName, name: name })
         });
         const data = await res.json();
         if (res.ok) {
@@ -761,7 +761,7 @@ document.getElementById('confirm-join-league').addEventListener('click', async (
         const res = await fetch('/api/leagues/join', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, invite_code: code })
+            body: JSON.stringify({ user_id: userId, userId, user_name: userName, invite_code: code })
         });
         const data = await res.json();
         if (res.ok) {
