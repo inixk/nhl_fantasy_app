@@ -1,3 +1,4 @@
+ъ// frontend/app.js
 const tg = window.Telegram.WebApp;
 tg.expand();
 
@@ -35,7 +36,9 @@ function populateTeamFilters() {
 }
 populateTeamFilters();
 
-// --- НАВИГАЦИЯ И ОНБОРДИНГ ---
+// ==========================================
+// 1. ОНБОРДИНГ И ГЛАВНАЯ НАВИГАЦИЯ
+// ==========================================
 const welcomeModal = document.getElementById('welcome-modal');
 const appContainer = document.getElementById('app-container');
 
@@ -56,6 +59,7 @@ if (!localStorage.getItem('nhl_onboarding_done')) {
 document.getElementById('info-btn')?.addEventListener('click', () => document.getElementById('info-modal').style.display = 'flex');
 document.getElementById('close-info-btn')?.addEventListener('click', () => document.getElementById('info-modal').style.display = 'none');
 
+// Главное нижнее меню
 const navItems = document.querySelectorAll('.nav-item');
 const tabContents = document.querySelectorAll('.tab-content');
 navItems.forEach(item => {
@@ -64,33 +68,47 @@ navItems.forEach(item => {
         tabContents.forEach(tab => tab.classList.remove('active'));
         item.classList.add('active');
         document.getElementById(item.getAttribute('data-target')).classList.add('active');
+
+        // Подгружаем лиги только когда переходим в эту вкладку
+        if (item.getAttribute('data-target') === 'tab-leagues') {
+            fetchGeneralLeaderboard();
+            fetchMyLeagues();
+        }
     });
 });
 
-// Универсальные внутренние табы
+// 🌟 УНИВЕРСАЛЬНЫЕ ВНУТРЕННИЕ ВКЛАДКИ (NHL STATS И LEAGUES)
 document.querySelectorAll('.segment-tab').forEach(tab => {
     tab.addEventListener('click', () => {
         const group = tab.getAttribute('data-group');
+        
+        // Сбрасываем только вкладки этой группы
         document.querySelectorAll(`.segment-tab[data-group="${group}"]`).forEach(t => t.classList.remove('active'));
         document.querySelectorAll(`.sub-section[data-group="${group}"]`).forEach(s => s.classList.remove('active'));
         
         tab.classList.add('active');
         document.getElementById(tab.getAttribute('data-target')).classList.add('active');
 
-        // Подгружаем данные если вкладка пустая
-        if (tab.getAttribute('data-target') === 'stats-leaders' && document.getElementById('leaders-table-container').innerHTML.includes('Выберите')) fetchLeaders();
-        if (tab.getAttribute('data-target') === 'stats-scores' && document.getElementById('scores-list-container').innerHTML.includes('Загрузка')) fetchScores();
+        // Подгружаем данные по требованию
+        if (tab.getAttribute('data-target') === 'stats-leaders') {
+            if (document.getElementById('leaders-table-container').innerHTML.includes('Выберите')) fetchLeaders();
+        }
+        if (tab.getAttribute('data-target') === 'stats-scores') {
+            if (document.getElementById('scores-list-container').innerHTML.includes('Загрузка')) fetchScores();
+        }
     });
 });
 
-// --- ИНИЦИАЛИЗАЦИЯ ---
+// ==========================================
+// 2. ИНИЦИАЛИЗАЦИЯ И СБОРКА КОМАНДЫ
+// ==========================================
 async function initApp() {
     try {
         const response = await fetch('/api/players');
         allPlayers = await response.json();
         renderFantasyStats();
         await fetchMyTeam();
-        fetchStandings();
+        fetchStandings(); // Грузим таблицы НХЛ
     } catch (error) { console.error("Error fetching players:", error); }
 }
 
@@ -115,7 +133,6 @@ async function fetchMyTeam() {
     } catch (error) { console.error("Error fetching my team:", error); }
 }
 
-// --- КАРТОЧКИ ИГРОКОВ ---
 function createPlayerCardHTML(p, showBuyButton = false) {
     let ptsClass = p.points > 0 ? 'pts-positive' : (p.points < 0 ? 'pts-negative' : 'pts-neutral');
     let ptsPrefix = p.points > 0 ? '+' : '';
@@ -175,7 +192,17 @@ function renderMarket() {
     filtered.slice(0, 50).forEach(p => { list.innerHTML += createPlayerCardHTML(p, true); });
 }
 
-// --- СБОРКА КОМАНДЫ ---
+// Слушатели поиска и фильтров рынка
+['fantasy-search', 'fantasy-pos-filter', 'fantasy-team-filter', 'fantasy-sort', 'fantasy-min-price', 'fantasy-max-price'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.addEventListener('change', renderFantasyStats); el.addEventListener('input', renderFantasyStats); }
+});
+['market-search', 'market-team-filter', 'market-sort', 'market-min-price', 'market-max-price'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.addEventListener('change', renderMarket); el.addEventListener('input', renderMarket); }
+});
+
+// Клик по слоту команды
 document.querySelectorAll('.player-slot').forEach(slot => {
     slot.addEventListener('click', function() {
         const pos = this.getAttribute('data-pos');
@@ -213,7 +240,9 @@ document.querySelectorAll('.player-slot').forEach(slot => {
     });
 });
 
-document.getElementById('close-market-btn')?.addEventListener('click', () => { document.getElementById('market-modal').style.display = 'none'; });
+document.getElementById('close-market-btn')?.addEventListener('click', () => {
+    document.getElementById('market-modal').style.display = 'none';
+});
 
 window.buyPlayer = function(playerId) {
     const player = allPlayers.find(p => p.id === playerId);
@@ -270,6 +299,7 @@ function updateTeamUI() {
 
 document.getElementById('save-team-btn')?.addEventListener('click', async () => {
     if (!captainId) { tg.showAlert("⚠️ Please select a Captain (C) before saving!"); return; }
+
     tg.showConfirm("Submit this roster? Your changes will be saved.", async (confirmed) => {
         if (confirmed) {
             const saveBtn = document.getElementById('save-team-btn');
@@ -295,18 +325,8 @@ document.getElementById('save-team-btn')?.addEventListener('click', async () => 
     });
 });
 
-// --- СЛУШАТЕЛИ ФИЛЬТРОВ ---
-['fantasy-search', 'fantasy-pos-filter', 'fantasy-team-filter', 'fantasy-sort', 'fantasy-min-price', 'fantasy-max-price'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.addEventListener('change', renderFantasyStats); el.addEventListener('input', renderFantasyStats); }
-});
-['market-search', 'market-team-filter', 'market-sort', 'market-min-price', 'market-max-price'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.addEventListener('change', renderMarket); el.addEventListener('input', renderMarket); }
-});
-
 // ==========================================
-// 5. NHL STATS (Таблицы, Лидеры, Матчи)
+// 3. NHL STATS
 // ==========================================
 let currentStandings = [];
 async function fetchStandings() {
@@ -401,13 +421,8 @@ async function fetchScores() {
 }
 
 // ==========================================
-// 6. LEAGUES (Лиги)
+// 4. LEAGUES (Лиги)
 // ==========================================
-document.querySelector('.nav-item[data-target="tab-leagues"]')?.addEventListener('click', () => {
-    fetchGeneralLeaderboard();
-    fetchMyLeagues();
-});
-
 async function fetchGeneralLeaderboard() {
     try {
         const res = await fetch(`/api/leagues/general?user_id=${userId}`);
@@ -459,7 +474,12 @@ function renderLeaderboard(containerId, leaderboardData) {
     list.innerHTML = html;
 }
 
-document.getElementById('btn-show-create-league')?.addEventListener('click', () => { document.getElementById('create-league-name').value = ''; document.getElementById('create-team-name').value = ''; document.getElementById('create-league-modal').style.display = 'flex'; });
+// Создать лигу
+document.getElementById('btn-show-create-league')?.addEventListener('click', () => { 
+    document.getElementById('create-league-name').value = ''; 
+    document.getElementById('create-team-name').value = ''; 
+    document.getElementById('create-league-modal').style.display = 'flex'; 
+});
 document.getElementById('cancel-create-league')?.addEventListener('click', () => { document.getElementById('create-league-modal').style.display = 'none'; });
 
 document.getElementById('confirm-create-league')?.addEventListener('click', async () => {
@@ -477,7 +497,12 @@ document.getElementById('confirm-create-league')?.addEventListener('click', asyn
     } catch (e) { tg.showAlert("❌ Ошибка сети"); } finally { btn.disabled = false; btn.innerText = "Создать"; }
 });
 
-document.getElementById('btn-show-join-league')?.addEventListener('click', () => { document.getElementById('join-league-code').value = ''; document.getElementById('join-team-name').value = ''; document.getElementById('join-league-modal').style.display = 'flex'; });
+// Вступить в лигу
+document.getElementById('btn-show-join-league')?.addEventListener('click', () => { 
+    document.getElementById('join-league-code').value = ''; 
+    document.getElementById('join-team-name').value = ''; 
+    document.getElementById('join-league-modal').style.display = 'flex'; 
+});
 document.getElementById('cancel-join-league')?.addEventListener('click', () => { document.getElementById('join-league-modal').style.display = 'none'; });
 
 document.getElementById('confirm-join-league')?.addEventListener('click', async () => {
