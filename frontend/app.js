@@ -1,12 +1,12 @@
+// frontend/app.js
 const tg = window.Telegram.WebApp;
-const userName = user?.first_name || 'Менеджер';
 tg.expand();
 
+// Глобальные переменные
 let allPlayers = [];
 let currentTransferSlot = { pos: null, index: null };
-
 let balance = 10000; 
-let captainId = null; // 🌟 СОХРАНЯЕМ КАПИТАНА
+let captainId = null; 
 let myRoster = { F: [null,null,null,null,null,null,null,null,null], D: [null,null,null,null,null,null], G: [null,null] };
 
 const teamColors = {
@@ -16,37 +16,48 @@ const teamColors = {
     'STL': '#002F87', 'TBL': '#002868', 'TOR': '#00205B', 'UTA': '#000000', 'VAN': '#00205B', 'VGK': '#B4975A', 'WSH': '#041E42', 'WPG': '#041E42'
 };
 
+// Пользователь
+const user = tg.initDataUnsafe?.user;
+const userId = user?.id || 123456789;
+const userName = user?.first_name || user?.username || 'Manager';
+
+if (document.getElementById('greeting')) {
+    document.getElementById('greeting').innerText = `Welcome, ${userName}! 🏒`;
+}
+
+// Заполняем селекторы команд
 function populateTeamFilters() {
     const teams = Object.keys(teamColors).sort();
     const marketSelect = document.getElementById('market-team-filter');
     const fantasySelect = document.getElementById('fantasy-team-filter');
-    teams.forEach(t => {
-        marketSelect.innerHTML += `<option value="${t}">${t}</option>`;
-        fantasySelect.innerHTML += `<option value="${t}">${t}</option>`;
-    });
+    if(marketSelect && fantasySelect) {
+        teams.forEach(t => {
+            marketSelect.innerHTML += `<option value="${t}">${t}</option>`;
+            fantasySelect.innerHTML += `<option value="${t}">${t}</option>`;
+        });
+    }
 }
 populateTeamFilters();
 
-// Приветствие
-const user = tg.initDataUnsafe?.user;
-if (user && document.getElementById('greeting')) {
-    document.getElementById('greeting').innerText = `Welcome, ${user.first_name}! 🏒`;
-}
-const userId = user?.id || 123456789;
+// ==========================================
+// 1. ОНБОРДИНГ И НАВИГАЦИЯ
+// ==========================================
+const welcomeModal = document.getElementById('welcome-modal');
+const appContainer = document.getElementById('app-container');
 
 if (!localStorage.getItem('nhl_onboarding_done')) {
     document.getElementById('start-btn')?.addEventListener('click', () => {
         localStorage.setItem('nhl_onboarding_done', 'true');
-        document.getElementById('welcome-modal').style.display = 'none';
-        document.getElementById('app-container').style.display = 'block';
+        if(welcomeModal) welcomeModal.style.display = 'none';
+        if(appContainer) appContainer.style.display = 'block';
     });
 } else {
-    document.getElementById('welcome-modal').style.display = 'none';
-    document.getElementById('app-container').style.display = 'block';
+    if(welcomeModal) welcomeModal.style.display = 'none';
+    if(appContainer) appContainer.style.display = 'block';
 }
 
-document.getElementById('info-btn').addEventListener('click', () => { document.getElementById('info-modal').style.display = 'flex'; });
-document.getElementById('close-info-btn').addEventListener('click', () => { document.getElementById('info-modal').style.display = 'none'; });
+document.getElementById('info-btn')?.addEventListener('click', () => { document.getElementById('info-modal').style.display = 'flex'; });
+document.getElementById('close-info-btn')?.addEventListener('click', () => { document.getElementById('info-modal').style.display = 'none'; });
 
 const navItems = document.querySelectorAll('.nav-item');
 const tabContents = document.querySelectorAll('.tab-content');
@@ -59,16 +70,16 @@ navItems.forEach(item => {
     });
 });
 
+// ==========================================
+// 2. ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
+// ==========================================
 async function initApp() {
     try {
         const response = await fetch('/api/players');
         allPlayers = await response.json();
         renderFantasyStats();
         await fetchMyTeam();
-        
-        // 🌟 ДОБАВЬ ЭТУ СТРОКУ:
-        fetchStandings(); 
-
+        fetchStandings(); // Грузим таблицы НХЛ
     } catch (error) { console.error("Error fetching players:", error); }
 }
 
@@ -76,9 +87,8 @@ async function fetchMyTeam() {
     try {
         const response = await fetch(`/api/my_team?user_id=${userId}`);
         const data = await response.json();
-        
         balance = data.balance;
-        captainId = data.captain_id; // Загружаем Кэпа
+        captainId = data.captain_id;
         myRoster = { F: [null,null,null,null,null,null,null,null,null], D: [null,null,null,null,null,null], G: [null,null] };
         
         let fIndex = 0, dIndex = 0, gIndex = 0;
@@ -94,19 +104,14 @@ async function fetchMyTeam() {
     } catch (error) { console.error("Error fetching my team:", error); }
 }
 
+// ==========================================
+// 3. ОТРИСОВКА КАРТОЧЕК И РЫНОК
+// ==========================================
 function createPlayerCardHTML(p, showBuyButton = false) {
     let ptsClass = p.points > 0 ? 'pts-positive' : (p.points < 0 ? 'pts-negative' : 'pts-neutral');
     let ptsPrefix = p.points > 0 ? '+' : '';
-    
-    let rightSide = `
-        <div class="player-right">
-            <span class="pts-value ${ptsClass}">${ptsPrefix}${Math.round(p.points)}</span>
-            <span class="pts-label">FC</span>
-        </div>
-    `;
-    if (showBuyButton) {
-        rightSide = `<div class="player-right"><button class="pick-btn" onclick="buyPlayer(${p.id})">Pick✅</button></div>`;
-    }
+    let rightSide = `<div class="player-right"><span class="pts-value ${ptsClass}">${ptsPrefix}${Math.round(p.points)}</span><span class="pts-label">PTS</span></div>`;
+    if (showBuyButton) rightSide = `<div class="player-right"><button class="pick-btn" onclick="buyPlayer(${p.id})">Pick✅</button></div>`;
     
     const bgColor = teamColors[p.team] || '#1e293b';
     const textColor = ['BOS', 'NSH', 'PIT', 'VGK'].includes(p.team) ? '#000000' : '#ffffff';
@@ -124,8 +129,7 @@ function createPlayerCardHTML(p, showBuyButton = false) {
                 </div>
             </div>
             ${rightSide}
-        </div>
-    `;
+        </div>`;
 }
 
 function filterAndSort(searchId, posId, teamId, sortId, minPriceId, maxPriceId, positionForce = null) {
@@ -133,20 +137,15 @@ function filterAndSort(searchId, posId, teamId, sortId, minPriceId, maxPriceId, 
     const posFilter = positionForce || (document.getElementById(posId) ? document.getElementById(posId).value : 'ALL');
     const teamFilter = document.getElementById(teamId).value;
     const sortBy = document.getElementById(sortId).value;
-    
-    // Новые фильтры цены
     const minPrice = parseInt(document.getElementById(minPriceId)?.value) || 0;
     const maxPrice = parseInt(document.getElementById(maxPriceId)?.value) || 99999;
 
-    let filtered = allPlayers.filter(p => {
-        return p.name.toLowerCase().includes(search) && p.price >= minPrice && p.price <= maxPrice;
-    });
+    let filtered = allPlayers.filter(p => p.name.toLowerCase().includes(search) && p.price >= minPrice && p.price <= maxPrice);
     if (posFilter !== 'ALL') filtered = filtered.filter(p => p.position === posFilter);
     if (teamFilter !== 'ALL') filtered = filtered.filter(p => p.team === teamFilter);
 
-    // Новая двухсторонняя сортировка по очкам/FC
-    if (sortBy === 'points_desc') filtered.sort((a, b) => b.points - a.points); // Рост
-    if (sortBy === 'points_asc') filtered.sort((a, b) => a.points - b.points);  // Падение
+    if (sortBy === 'points_desc') filtered.sort((a, b) => b.points - a.points);
+    if (sortBy === 'points_asc') filtered.sort((a, b) => a.points - b.points);
     if (sortBy === 'price_desc') filtered.sort((a, b) => b.price - a.price);
     if (sortBy === 'price_asc') filtered.sort((a, b) => a.price - b.price);
 
@@ -167,7 +166,9 @@ function renderMarket() {
     filtered.slice(0, 50).forEach(p => { list.innerHTML += createPlayerCardHTML(p, true); });
 }
 
-// 🌟 НАЖАТИЕ НА СЛОТ КОМАНДЫ (МЕНЮ ВЫБОРА КАПИТАНА)
+// ==========================================
+// 4. УПРАВЛЕНИЕ СОСТАВОМ И КАПИТАН
+// ==========================================
 document.querySelectorAll('.player-slot').forEach(slot => {
     slot.addEventListener('click', function() {
         const pos = this.getAttribute('data-pos');
@@ -175,8 +176,6 @@ document.querySelectorAll('.player-slot').forEach(slot => {
 
         if (myRoster[pos][index] !== null) {
             const p = myRoster[pos][index];
-            
-            // Нативное всплывающее меню Telegram!
             tg.showPopup({
                 title: p.name,
                 message: `Cost: ${p.price} FC\nWhat do you want to do?`,
@@ -189,7 +188,7 @@ document.querySelectorAll('.player-slot').forEach(slot => {
                 if (buttonId === "sell") {
                     balance += p.price;
                     myRoster[pos][index] = null;
-                    if (captainId === p.id) captainId = null; // Убираем кэпа при продаже
+                    if (captainId === p.id) captainId = null;
                     updateTeamUI();
                 } else if (buttonId === "captain") {
                     captainId = p.id;
@@ -207,36 +206,25 @@ document.querySelectorAll('.player-slot').forEach(slot => {
     });
 });
 
-document.getElementById('close-market-btn').addEventListener('click', () => {
+document.getElementById('close-market-btn')?.addEventListener('click', () => {
     document.getElementById('market-modal').style.display = 'none';
 });
 
 window.buyPlayer = function(playerId) {
     const player = allPlayers.find(p => p.id === playerId);
     
-    const isAlreadyBought = ['F', 'D', 'G'].some(pos => myRoster[pos].some(p => p && p.id === playerId));
-    if (isAlreadyBought) {
-        tg.showAlert('Player already in your roster!');
-        return;
+    if (['F', 'D', 'G'].some(pos => myRoster[pos].some(p => p && p.id === playerId))) {
+        tg.showAlert('Player already in your roster!'); return;
     }
 
     let teamCount = 0;
-    ['F', 'D', 'G'].forEach(pos => {
-        myRoster[pos].forEach(p => { if (p && p.team === player.team) teamCount++; });
-    });
-    if (teamCount >= 4) {
-        tg.showAlert(`Limit reached! Max 4 players from ${player.team}.`);
-        return;
-    }
+    ['F', 'D', 'G'].forEach(pos => { myRoster[pos].forEach(p => { if (p && p.team === player.team) teamCount++; }); });
+    if (teamCount >= 4) { tg.showAlert(`Limit reached! Max 4 players from ${player.team}.`); return; }
 
-    if (balance < player.price) {
-        tg.showAlert(`Not enough FC! You need ${player.price} FC.`);
-        return;
-    }
+    if (balance < player.price) { tg.showAlert(`Not enough FC! You need ${player.price} FC.`); return; }
 
     balance -= player.price;
     myRoster[currentTransferSlot.pos][currentTransferSlot.index] = player;
-    
     document.getElementById('market-modal').style.display = 'none';
     updateTeamUI();
 };
@@ -253,15 +241,11 @@ function updateTeamUI() {
                 const lastName = player.name.split(' ').pop();
                 const bgColor = teamColors[player.team] || '#1e293b';
                 const textColor = ['BOS', 'NSH', 'PIT', 'VGK'].includes(player.team) ? '#000000' : '#ffffff';
-
-                // 🌟 ДОБАВЛЯЕМ ЗНАЧОК (С) ЕСЛИ ЭТО КАПИТАН
                 const captainBadge = player.id === captainId ? `<div class="captain-badge">C</div>` : '';
 
                 domSlot.innerHTML = `
                     ${captainBadge}
-                    <div class="jersey" style="background-color: ${bgColor}; color: ${textColor}; border: 2px solid ${bgColor};">
-                        ${player.team}
-                    </div>
+                    <div class="jersey" style="background-color: ${bgColor}; color: ${textColor}; border: 2px solid ${bgColor};">${player.team}</div>
                     <div class="slot-name" style="color: #cbd5e1;">${lastName}</div>
                     <div class="rink-price">${player.price}</div>
                 `;
@@ -282,64 +266,40 @@ function updateTeamUI() {
     }
 }
 
-document.getElementById('save-team-btn').addEventListener('click', async () => {
-    if (!captainId) {
-        tg.showAlert("⚠️ Please select a Captain (C) before saving!");
-        return; // Не даем сохранить без капитана
-    }
+document.getElementById('save-team-btn')?.addEventListener('click', async () => {
+    if (!captainId) { tg.showAlert("⚠️ Please select a Captain (C) before saving!"); return; }
 
     tg.showConfirm("Submit this roster? Your changes will be saved.", async (confirmed) => {
         if (confirmed) {
             const saveBtn = document.getElementById('save-team-btn');
-            saveBtn.innerText = "Saving...";
-            saveBtn.disabled = true;
+            saveBtn.innerText = "Saving..."; saveBtn.disabled = true;
 
             let rosterIds = [];
-            ['F', 'D', 'G'].forEach(pos => {
-                myRoster[pos].forEach(player => { rosterIds.push(player ? player.id : null); });
-            });
+            ['F', 'D', 'G'].forEach(pos => { myRoster[pos].forEach(player => { rosterIds.push(player ? player.id : null); }); });
 
             try {
                 const response = await fetch('/api/save_team', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user_id: userId, user_name: userName, roster_ids: rosterIds, balance: balance, captain_id: captainId })
                 });
 
                 if (response.ok) {
                     tg.showAlert("✅ Roster saved successfully!");
                     tg.HapticFeedback.notificationOccurred('success');
-                } else {
-                    throw new Error("Server Error");
-                }
+                } else { throw new Error("Server Error"); }
             } catch (err) {
-                console.error(err);
-                tg.showAlert("❌ Error saving team");
+                console.error(err); tg.showAlert("❌ Error saving team");
             } finally {
-                saveBtn.innerText = "Save changes";
-                saveBtn.style.background = "var(--glass-border)";
-                fetchMyTeam(); // Обновляем данные с сервера
+                saveBtn.innerText = "Save changes"; saveBtn.style.background = "var(--glass-border)";
+                fetchMyTeam(); 
             }
         }
     });
 });
 
-['fantasy-search', 'fantasy-pos-filter', 'fantasy-team-filter', 'fantasy-sort', 'fantasy-min-price', 'fantasy-max-price'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.addEventListener('change', renderFantasyStats); el.addEventListener('input', renderFantasyStats); }
-});
-['market-search', 'market-team-filter', 'market-sort', 'market-min-price', 'market-max-price'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.addEventListener('change', renderMarket); el.addEventListener('input', renderMarket); }
-});
-
 // ==========================================
-// 📊 ЛОГИКА NHL STATS
+// 5. NHL STATS (Таблицы, Лидеры, Матчи)
 // ==========================================
-
-let currentStandings = [];
-
-// Переключение внутренних вкладок в NHL STATS
 const statsTabs = document.querySelectorAll('.stats-tab');
 const statsSections = document.querySelectorAll('.stats-section');
 statsTabs.forEach(tab => {
@@ -351,245 +311,103 @@ statsTabs.forEach(tab => {
     });
 });
 
-// Загрузка таблиц
+let currentStandings = [];
 async function fetchStandings() {
     try {
         const res = await fetch('/api/nhl/standings');
         currentStandings = await res.json();
         renderStandings();
-    } catch (e) {
-        document.getElementById('standings-table-container').innerHTML = "<div class='loading-text'>Ошибка загрузки.</div>";
-    }
+    } catch (e) { document.getElementById('standings-table-container').innerHTML = "<div class='loading-text'>Ошибка загрузки таблиц.</div>"; }
 }
 
-// Отрисовка таблиц
 function renderStandings() {
     const type = document.getElementById('standings-type').value;
     const container = document.getElementById('standings-table-container');
     container.innerHTML = '';
-
-    if (type === 'league') {
-        container.innerHTML = generateStandingsTable('NHL', currentStandings);
-    } else if (type === 'conference') {
-        const eastern = currentStandings.filter(t => t.conferenceName === 'Eastern');
-        const western = currentStandings.filter(t => t.conferenceName === 'Western');
-        container.innerHTML = generateStandingsTable('Eastern Conference', eastern) + 
-                              generateStandingsTable('Western Conference', western);
+    if (type === 'league') container.innerHTML = generateStandingsTable('NHL', currentStandings);
+    else if (type === 'conference') {
+        container.innerHTML = generateStandingsTable('Eastern Conference', currentStandings.filter(t => t.conferenceName === 'Eastern')) + 
+                              generateStandingsTable('Western Conference', currentStandings.filter(t => t.conferenceName === 'Western'));
     } else if (type === 'division') {
-        const divisions = [...new Set(currentStandings.map(t => t.divisionName))];
-        divisions.forEach(div => {
-            const divTeams = currentStandings.filter(t => t.divisionName === div);
-            container.innerHTML += generateStandingsTable(div + ' Division', divTeams);
+        [...new Set(currentStandings.map(t => t.divisionName))].forEach(div => {
+            container.innerHTML += generateStandingsTable(div + ' Division', currentStandings.filter(t => t.divisionName === div));
         });
     }
 }
 
-// Генератор HTML для таблицы
 function generateStandingsTable(title, teams) {
-    // Сортируем по очкам, при равенстве - по проценту очков
     teams.sort((a, b) => b.points - a.points || b.pointPctg - a.pointPctg);
-
-    let html = `<div class="section-header">${title}</div>`;
-    html += `<table class="standings-table">
-                <tr><th>#</th><th>Team</th><th>GP</th><th>W</th><th>L</th><th>OT</th><th>PTS</th></tr>`;
-
+    let html = `<div class="section-header">${title}</div><table class="standings-table"><tr><th>#</th><th>Team</th><th>GP</th><th>W</th><th>L</th><th>OT</th><th>PTS</th></tr>`;
     teams.forEach((t, index) => {
-        // Логика зоны плей-офф (Топ-3 в дивизионе или Wildcard)
         const isPlayoff = (t.divisionSequence <= 3) || (t.wildcardSequence <= 2);
-        const rowClass = isPlayoff ? 'playoff-spot' : '';
-
-        html += `<tr class="${rowClass}">
-            <td>${index + 1}</td>
-            <td>
-                <div class="team-cell">
-                    <img src="${t.teamLogo}" class="team-logo">
-                    ${t.teamAbbrev.default}
-                </div>
-            </td>
-            <td>${t.gamesPlayed}</td>
-            <td>${t.wins}</td>
-            <td>${t.losses}</td>
-            <td>${t.otLosses}</td>
-            <td style="font-weight: bold; color: white;">${t.points}</td>
-        </tr>`;
+        html += `<tr class="${isPlayoff ? 'playoff-spot' : ''}"><td>${index + 1}</td><td><div class="team-cell"><img src="${t.teamLogo}" class="team-logo">${t.teamAbbrev.default}</div></td><td>${t.gamesPlayed}</td><td>${t.wins}</td><td>${t.losses}</td><td>${t.otLosses}</td><td style="font-weight: bold; color: white;">${t.points}</td></tr>`;
     });
-
-    html += `</table>`;
-    return html;
+    return html + `</table>`;
 }
-
-document.getElementById('standings-type').addEventListener('change', renderStandings);
-
-// ==========================================
-// 🏆 ЛОГИКА ТОП-20 ЛИДЕРОВ (Спринт 4.2)
-// ==========================================
+document.getElementById('standings-type')?.addEventListener('change', renderStandings);
 
 async function fetchLeaders() {
     const category = document.getElementById('leaders-type').value;
     const container = document.getElementById('leaders-table-container');
     container.innerHTML = "<div class='loading-text'>Загрузка статистики...</div>";
-    
     try {
         const res = await fetch(`/api/nhl/leaders?category=${category}`);
         const data = await res.json();
-        
-        if (!data || data.length === 0) {
-            container.innerHTML = "<div class='loading-text'>Данные не найдены</div>";
-            return;
-        }
-
+        if (!data || data.length === 0) { container.innerHTML = "<div class='loading-text'>Данные не найдены</div>"; return; }
         const isGoalie = category === 'sv_pct' || category === 'gaa';
-        
         let html = `<table class="standings-table">`;
+        if (isGoalie) html += `<tr><th>#</th><th>Goalie</th><th>GP</th><th>SV%</th><th>GAA</th></tr>`;
+        else html += `<tr><th>#</th><th>Player</th><th>GP</th><th>G</th><th>A</th><th>PTS</th></tr>`;
         
-        if (isGoalie) {
-            // Шапка для вратарей
-            html += `<tr><th>#</th><th>Goalie</th><th>GP</th><th>SV%</th><th>GAA</th></tr>`;
-        } else {
-            // Шапка для полевых
-            html += `<tr><th>#</th><th>Player</th><th>GP</th><th>G</th><th>A</th><th>PTS</th></tr>`;
-        }
-
         data.forEach((p, index) => {
             const lastName = p.lastName ? p.lastName : (p.skaterFullName || p.goalieFullName).split(' ').pop();
             const team = p.teamAbbrevs || p.teamAbbrev || '---';
-            
-            html += `<tr>
-                <td>${index + 1}</td>
-                <td>
-                    <div style="font-weight: 600; color: white;">${lastName}</div>
-                    <div style="font-size: 10px; color: var(--text-muted);">${team}</div>
-                </td>
-                <td>${p.gamesPlayed}</td>`;
-                
-            if (isGoalie) {
-                // Колонки вратарей
-                const sv = parseFloat(p.savePct).toFixed(3);
-                const gaa = parseFloat(p.goalsAgainstAverage).toFixed(2);
-                html += `
-                    <td style="color: ${category === 'sv_pct' ? 'var(--accent-green)' : 'inherit'}; font-weight: ${category === 'sv_pct' ? 'bold' : 'normal'}">${sv}</td>
-                    <td style="color: ${category === 'gaa' ? 'var(--accent-green)' : 'inherit'}; font-weight: ${category === 'gaa' ? 'bold' : 'normal'}">${gaa}</td>
-                `;
-            } else {
-                // Колонки полевых
-                html += `
-                    <td style="color: ${category === 'goals' ? 'var(--accent-green)' : 'inherit'}">${p.goals}</td>
-                    <td style="color: ${category === 'assists' ? 'var(--accent-green)' : 'inherit'}">${p.assists}</td>
-                    <td style="font-weight: bold; color: ${category === 'points' || category === 'russians' ? 'var(--accent-green)' : 'white'};">${p.points}</td>
-                `;
-            }
+            html += `<tr><td>${index + 1}</td><td><div style="font-weight: 600; color: white;">${lastName}</div><div style="font-size: 10px; color: var(--text-muted);">${team}</div></td><td>${p.gamesPlayed}</td>`;
+            if (isGoalie) html += `<td style="color: ${category === 'sv_pct' ? 'var(--accent-green)' : 'inherit'}; font-weight: ${category === 'sv_pct' ? 'bold' : 'normal'}">${parseFloat(p.savePct).toFixed(3)}</td><td style="color: ${category === 'gaa' ? 'var(--accent-green)' : 'inherit'}; font-weight: ${category === 'gaa' ? 'bold' : 'normal'}">${parseFloat(p.goalsAgainstAverage).toFixed(2)}</td>`;
+            else html += `<td style="color: ${category === 'goals' ? 'var(--accent-green)' : 'inherit'}">${p.goals}</td><td style="color: ${category === 'assists' ? 'var(--accent-green)' : 'inherit'}">${p.assists}</td><td style="font-weight: bold; color: ${category === 'points' || category === 'russians' ? 'var(--accent-green)' : 'white'};">${p.points}</td>`;
             html += `</tr>`;
         });
-        
-        html += `</table>`;
-        container.innerHTML = html;
-
-    } catch (e) {
-        console.error(e);
-        container.innerHTML = "<div class='loading-text'>Ошибка загрузки.</div>";
-    }
+        container.innerHTML = html + `</table>`;
+    } catch (e) { container.innerHTML = "<div class='loading-text'>Ошибка загрузки.</div>"; }
 }
-
-// Загружаем при изменении фильтра
-document.getElementById('leaders-type').addEventListener('change', fetchLeaders);
-
-// Загружаем первый раз, когда юзер переключается на вкладку "Топ-20"
-document.querySelector('.stats-tab[data-target="stats-leaders"]').addEventListener('click', () => {
-    if (document.getElementById('leaders-table-container').innerHTML.includes('Выберите категорию')) {
-        fetchLeaders();
-    }
-});
-
-// ==========================================
-// 📅 ЛОГИКА МАТЧЕЙ И КАЛЕНДАРЯ (Спринт 4.3)
-// ==========================================
+document.getElementById('leaders-type')?.addEventListener('change', fetchLeaders);
+document.querySelector('.stats-tab[data-target="stats-leaders"]')?.addEventListener('click', () => { if (document.getElementById('leaders-table-container').innerHTML.includes('Выберите категорию')) fetchLeaders(); });
 
 const datePicker = document.getElementById('scores-date-picker');
-
-// Устанавливаем сегодняшнюю дату по умолчанию
-const today = new Date();
-// Учитываем часовой пояс при форматировании в YYYY-MM-DD
-const localISOTime = (new Date(today.getTime() - (today.getTimezoneOffset() * 60000))).toISOString().split('T')[0];
-datePicker.value = localISOTime;
+if(datePicker) {
+    const today = new Date();
+    datePicker.value = (new Date(today.getTime() - (today.getTimezoneOffset() * 60000))).toISOString().split('T')[0];
+    datePicker.addEventListener('change', fetchScores);
+}
 
 async function fetchScores() {
     const container = document.getElementById('scores-list-container');
     container.innerHTML = "<div class='loading-text'>Загрузка матчей...</div>";
-    
-    const selectedDate = datePicker.value; // YYYY-MM-DD
-    
     try {
-        const res = await fetch(`/api/nhl/scores?date=${selectedDate}`);
+        const res = await fetch(`/api/nhl/scores?date=${datePicker.value}`);
         const games = await res.json();
-        
-        if (!games || games.length === 0) {
-            container.innerHTML = "<div class='loading-text'>Нет матчей в этот день.</div>";
-            return;
-        }
-
+        if (!games || games.length === 0) { container.innerHTML = "<div class='loading-text'>Нет матчей в этот день.</div>"; return; }
         let html = '';
         games.forEach(g => {
             const scoreText = g.status === 'Scheduled' ? 'vs' : `${g.away_score} - ${g.home_score}`;
-            
             let detailsHtml = '';
-            // Если есть голы, вратари или звезды - рисуем блок деталей
-            if (g.goals.length > 0 || g.goalies.length > 0 || g.three_stars.length > 0) {
+            if (g.goals.length > 0 || g.goalies.length > 0 || (g.three_stars && g.three_stars.length > 0)) {
                 detailsHtml += `<div class="match-details">`;
-                
-                if (g.goals.length > 0) {
-                    detailsHtml += `<div class="match-details-title">🚨 Голы:</div>`;
-                    g.goals.forEach(goal => detailsHtml += `<div>${goal}</div>`);
-                }
-                
-                if (g.goalies.length > 0) {
-                    detailsHtml += `<div class="match-details-title">🥅 Вратари:</div>`;
-                    g.goalies.forEach(goalie => detailsHtml += `<div>${goalie}</div>`);
-                }
-                
-                // 🌟 ДОБАВЛЕН БЛОК "ТРИ ЗВЕЗДЫ"
-                if (g.three_stars.length > 0) {
-                    detailsHtml += `<div class="match-details-title" style="margin-top: 10px; color: #fbbf24;">🌟 Три звезды матча:</div>`;
-                    g.three_stars.forEach(star => detailsHtml += `<div>${star}</div>`);
-                }
-                
+                if (g.goals.length > 0) { detailsHtml += `<div class="match-details-title">🚨 Голы:</div>`; g.goals.forEach(goal => detailsHtml += `<div>${goal}</div>`); }
+                if (g.goalies.length > 0) { detailsHtml += `<div class="match-details-title">🥅 Вратари:</div>`; g.goalies.forEach(goalie => detailsHtml += `<div>${goalie}</div>`); }
+                if (g.three_stars && g.three_stars.length > 0) { detailsHtml += `<div class="match-details-title" style="margin-top: 10px; color: #fbbf24;">🌟 Три звезды матча:</div>`; g.three_stars.forEach(star => detailsHtml += `<div>${star}</div>`); }
                 detailsHtml += `</div>`;
             }
-
-            html += `
-            <div class="match-card">
-                <div class="match-header">${g.status}</div>
-                <div class="match-teams">
-                    <div class="match-team away">${g.away}</div>
-                    <div class="match-score">${scoreText}</div>
-                    <div class="match-team home">${g.home}</div>
-                </div>
-                ${detailsHtml}
-            </div>`;
+            html += `<div class="match-card"><div class="match-header">${g.status}</div><div class="match-teams"><div class="match-team away">${g.away}</div><div class="match-score">${scoreText}</div><div class="match-team home">${g.home}</div></div>${detailsHtml}</div>`;
         });
-        
         container.innerHTML = html;
-
-    } catch (e) {
-        console.error(e);
-        container.innerHTML = "<div class='loading-text'>Ошибка загрузки.</div>";
-    }
+    } catch (e) { container.innerHTML = "<div class='loading-text'>Ошибка загрузки.</div>"; }
 }
-
-// Загружаем при изменении даты в календаре
-datePicker.addEventListener('change', fetchScores);
-
-// Загружаем первый раз, когда юзер переключается на вкладку "Матчи"
-document.querySelector('.stats-tab[data-target="stats-scores"]').addEventListener('click', () => {
-    if (document.getElementById('scores-list-container').innerHTML.includes('Загрузка матчей')) {
-        fetchScores();
-    }
-});
+document.querySelector('.stats-tab[data-target="stats-scores"]')?.addEventListener('click', () => { if (document.getElementById('scores-list-container').innerHTML.includes('Загрузка матчей')) fetchScores(); });
 
 // ==========================================
-// 🏆 ЛОГИКА LEAGUES (Лиги и Общий зачет)
+// 6. LEAGUES (Лиги)
 // ==========================================
-
-// Переключение внутренних вкладок
 const leagueTabs = document.querySelectorAll('.league-tab');
 const leagueSections = document.querySelectorAll('.league-section');
 leagueTabs.forEach(tab => {
@@ -601,182 +419,103 @@ leagueTabs.forEach(tab => {
     });
 });
 
-// Загрузка при открытии 4-й вкладки
-document.querySelector('.nav-item[data-target="tab-leagues"]').addEventListener('click', () => {
+document.querySelector('.nav-item[data-target="tab-leagues"]')?.addEventListener('click', () => {
     fetchGeneralLeaderboard();
     fetchMyLeagues();
 });
 
-// 🌍 1. ОБЩИЙ ЗАЧЕТ
 async function fetchGeneralLeaderboard() {
     try {
         const res = await fetch(`/api/leagues/general?user_id=${userId}`);
         const data = await res.json();
         renderLeaderboard('general-leaderboard-list', data.leaderboard);
-        
-        // Личная плашка
         const myRankDiv = document.getElementById('general-my-rank');
         if (data.user_rank) {
             myRankDiv.style.display = 'block';
             myRankDiv.innerHTML = createLeaderboardItemHTML(data.user_rank, true);
-        } else {
-            myRankDiv.style.display = 'none';
-        }
-    } catch (e) {
-        console.error(e);
-        document.getElementById('general-leaderboard-list').innerHTML = "<div class='loading-text'>Ошибка загрузки рейтинга.</div>";
-    }
+        } else { myRankDiv.style.display = 'none'; }
+    } catch (e) { document.getElementById('general-leaderboard-list').innerHTML = "<div class='loading-text'>Ошибка загрузки рейтинга.</div>"; }
 }
 
-// 🤝 2. МОИ ЛИГИ
 async function fetchMyLeagues() {
     try {
         const res = await fetch(`/api/leagues/my?user_id=${userId}`);
         const leagues = await res.json();
-        
         const list = document.getElementById('my-leagues-list');
-        if (leagues.length === 0) {
-            list.innerHTML = "<div class='loading-text' style='padding-top:30px;'>Вы еще не состоите в частных лигах. Создайте свою или вступите по коду!</div>";
-            return;
-        }
-        
+        if (leagues.length === 0) { list.innerHTML = "<div class='loading-text' style='padding-top:30px;'>Вы еще не состоите в частных лигах. Создайте свою или вступите по коду!</div>"; return; }
         let html = '';
-        leagues.forEach(l => {
-            html += `
-            <div class="league-card" onclick="openPrivateLeague(${l.id}, '${l.name}', '${l.invite_code}')">
-                <div>
-                    <div class="league-card-title">${l.name}</div>
-                    <div class="league-card-code">Code: ${l.invite_code}</div>
-                </div>
-                <div style="color: var(--accent-blue); font-size: 20px;">➔</div>
-            </div>`;
-        });
+        leagues.forEach(l => { html += `<div class="league-card" onclick="openPrivateLeague(${l.id}, '${l.name}', '${l.invite_code}')"><div><div class="league-card-title">${l.name}</div><div class="league-card-code">Code: ${l.invite_code}</div></div><div style="color: var(--accent-blue); font-size: 20px;">➔</div></div>`; });
         list.innerHTML = html;
-    } catch (e) {
-        console.error(e);
-    }
+    } catch (e) { console.error(e); }
 }
 
-// 🏆 3. ЛИДЕРБОРД ЧАСТНОЙ ЛИГИ
 async function openPrivateLeague(leagueId, name, code) {
     document.getElementById('private-league-title').innerText = name;
     document.getElementById('private-league-code').innerText = code;
     document.getElementById('private-league-modal').style.display = 'flex';
     document.getElementById('private-leaderboard-list').innerHTML = "<div class='loading-text'>Загрузка...</div>";
-    
     try {
         const res = await fetch(`/api/leagues/${leagueId}/leaderboard?user_id=${userId}`);
         const data = await res.json();
         renderLeaderboard('private-leaderboard-list', data.leaderboard);
-    } catch (e) {
-        console.error(e);
-    }
+    } catch (e) { console.error(e); }
 }
-document.getElementById('close-private-league-btn').addEventListener('click', () => {
-    document.getElementById('private-league-modal').style.display = 'none';
-});
+document.getElementById('close-private-league-btn')?.addEventListener('click', () => { document.getElementById('private-league-modal').style.display = 'none'; });
 
-// Генератор HTML для строчки лидерборда
 function createLeaderboardItemHTML(user, hideBottomMargin = false) {
-    let rankClass = '';
-    if (user.rank === 1) rankClass = 'rank-1';
-    else if (user.rank === 2) rankClass = 'rank-2';
-    else if (user.rank === 3) rankClass = 'rank-3';
-    
-    const meClass = user.is_me ? 'is-me' : '';
-    const margin = hideBottomMargin ? 'margin-bottom: 0;' : '';
-
-    return `
-    <div class="leaderboard-item ${meClass}" style="${margin}">
-        <div class="rank-badge ${rankClass}">${user.rank}</div>
-        <div class="lb-user-info">${user.name}</div>
-        <div class="lb-points">${Math.round(user.points)} FC</div>
-    </div>`;
+    let rankClass = user.rank === 1 ? 'rank-1' : (user.rank === 2 ? 'rank-2' : (user.rank === 3 ? 'rank-3' : ''));
+    return `<div class="leaderboard-item ${user.is_me ? 'is-me' : ''}" style="${hideBottomMargin ? 'margin-bottom: 0;' : ''}"><div class="rank-badge ${rankClass}">${user.rank}</div><div class="lb-user-info">${user.name}</div><div class="lb-points">${Math.round(user.points)} FC</div></div>`;
 }
 
 function renderLeaderboard(containerId, leaderboardData) {
     const list = document.getElementById(containerId);
-    if (!leaderboardData || leaderboardData.length === 0) {
-        list.innerHTML = "<div class='loading-text'>Рейтинг пуст.</div>";
-        return;
-    }
+    if (!leaderboardData || leaderboardData.length === 0) { list.innerHTML = "<div class='loading-text'>Рейтинг пуст.</div>"; return; }
     let html = '';
     leaderboardData.forEach(u => html += createLeaderboardItemHTML(u));
     list.innerHTML = html;
 }
 
-// 🛠 4. СОЗДАНИЕ И ВСТУПЛЕНИЕ В ЛИГИ (Модалки)
-document.getElementById('btn-show-create-league').addEventListener('click', () => {
-    document.getElementById('create-league-name').value = '';
-    document.getElementById('create-league-modal').style.display = 'flex';
-});
-document.getElementById('cancel-create-league').addEventListener('click', () => {
-    document.getElementById('create-league-modal').style.display = 'none';
-});
+document.getElementById('btn-show-create-league')?.addEventListener('click', () => { document.getElementById('create-league-name').value = ''; document.getElementById('create-league-modal').style.display = 'flex'; });
+document.getElementById('cancel-create-league')?.addEventListener('click', () => { document.getElementById('create-league-modal').style.display = 'none'; });
 
-document.getElementById('confirm-create-league').addEventListener('click', async () => {
+document.getElementById('confirm-create-league')?.addEventListener('click', async () => {
     const name = document.getElementById('create-league-name').value.trim();
     if (name.length < 3) { tg.showAlert("Название должно быть от 3 символов!"); return; }
-    
     const btn = document.getElementById('confirm-create-league');
     btn.disabled = true; btn.innerText = "...";
-    
     try {
-        const res = await fetch('/api/leagues/create', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, user_name: userName, name: name })
-        });
+        const res = await fetch('/api/leagues/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId, user_name: userName, name: name }) });
         const data = await res.json();
-        if (res.ok) {
-            tg.showAlert(`✅ Лига создана!\nInvite Code: ${data.invite_code}`);
-            document.getElementById('create-league-modal').style.display = 'none';
-            fetchMyLeagues(); // Обновляем список
-        } else {
-            tg.showAlert("❌ Ошибка: " + (data.detail || "Не удалось создать"));
-        }
-    } catch (e) {
-        console.error(e); tg.showAlert("❌ Ошибка сети");
-    } finally {
-        btn.disabled = false; btn.innerText = "Создать";
-    }
+        if (res.ok) { tg.showAlert(`✅ Лига создана!\nInvite Code: ${data.invite_code}`); document.getElementById('create-league-modal').style.display = 'none'; fetchMyLeagues(); } 
+        else { tg.showAlert("❌ Ошибка: " + (data.detail || "Не удалось создать")); }
+    } catch (e) { tg.showAlert("❌ Ошибка сети"); } finally { btn.disabled = false; btn.innerText = "Создать"; }
 });
 
-document.getElementById('btn-show-join-league').addEventListener('click', () => {
-    document.getElementById('join-league-code').value = '';
-    document.getElementById('join-league-modal').style.display = 'flex';
-});
-document.getElementById('cancel-join-league').addEventListener('click', () => {
-    document.getElementById('join-league-modal').style.display = 'none';
-});
+document.getElementById('btn-show-join-league')?.addEventListener('click', () => { document.getElementById('join-league-code').value = ''; document.getElementById('join-league-modal').style.display = 'flex'; });
+document.getElementById('cancel-join-league')?.addEventListener('click', () => { document.getElementById('join-league-modal').style.display = 'none'; });
 
-document.getElementById('confirm-join-league').addEventListener('click', async () => {
+document.getElementById('confirm-join-league')?.addEventListener('click', async () => {
     const code = document.getElementById('join-league-code').value.trim().toUpperCase();
     if (code.length < 4) { tg.showAlert("Некорректный код!"); return; }
-    
     const btn = document.getElementById('confirm-join-league');
     btn.disabled = true; btn.innerText = "...";
-    
     try {
-        const res = await fetch('/api/leagues/join', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, userId, user_name: userName, invite_code: code })
-        });
+        const res = await fetch('/api/leagues/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId, user_name: userName, invite_code: code }) });
         const data = await res.json();
-        if (res.ok) {
-            tg.showAlert(`🎉 Вы успешно вступили в лигу:\n${data.league_name}`);
-            document.getElementById('join-league-modal').style.display = 'none';
-            fetchMyLeagues(); // Обновляем список
-        } else {
-            tg.showAlert("❌ Ошибка: " + (data.detail || "Не удалось вступить"));
-        }
-    } catch (e) {
-        console.error(e); tg.showAlert("❌ Ошибка сети");
-    } finally {
-        btn.disabled = false; btn.innerText = "Вступить";
-    }
+        if (res.ok) { tg.showAlert(`🎉 Вы успешно вступили в лигу:\n${data.league_name}`); document.getElementById('join-league-modal').style.display = 'none'; fetchMyLeagues(); } 
+        else { tg.showAlert("❌ Ошибка: " + (data.detail || "Не удалось вступить")); }
+    } catch (e) { tg.showAlert("❌ Ошибка сети"); } finally { btn.disabled = false; btn.innerText = "Вступить"; }
 });
 
-initApp();
+// Слушатели инпутов
+['fantasy-search', 'fantasy-pos-filter', 'fantasy-team-filter', 'fantasy-sort', 'fantasy-min-price', 'fantasy-max-price'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.addEventListener('change', renderFantasyStats); el.addEventListener('input', renderFantasyStats); }
+});
+['market-search', 'market-team-filter', 'market-sort', 'market-min-price', 'market-max-price'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.addEventListener('change', renderMarket); el.addEventListener('input', renderMarket); }
+});
 
+// СТАРТ
+initApp();
