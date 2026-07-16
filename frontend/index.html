@@ -83,6 +83,44 @@
         </div>
     </div>
 
+    <!-- МОДАЛКА: Лидерборд частной лиги -->
+    <div id="private-league-modal" class="modal-overlay market-overlay" style="display: none;">
+        <div class="glass-panel market-content">
+            <div class="market-header">
+                <h3 id="private-league-title">Лига</h3>
+                <button id="close-private-league-btn" class="icon-btn">✕</button>
+            </div>
+            <div style="padding: 10px 20px; font-size: 13px; text-align: center; background: rgba(0,0,0,0.2); border-bottom: 1px solid var(--glass-border);">
+                Invite Code: <b id="private-league-code" style="color: var(--accent-green); margin-left: 5px; font-size: 16px; letter-spacing: 1px;"></b>
+            </div>
+            <div id="private-leaderboard-list" class="players-scroll-list" style="padding: 10px;"></div>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА: Создать лигу -->
+    <div id="create-league-modal" class="modal-overlay" style="display: none;">
+        <div class="glass-panel modal-content">
+            <h2>Создать Лигу 🏆</h2>
+            <input type="text" id="create-league-name" class="glass-input" placeholder="Название лиги..." maxlength="30" style="margin-top: 15px;">
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button id="cancel-create-league" class="glass-btn" style="background: rgba(255,255,255,0.1);">Отмена</button>
+                <button id="confirm-create-league" class="glass-btn primary-btn">Создать</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА: Вступить в лигу -->
+    <div id="join-league-modal" class="modal-overlay" style="display: none;">
+        <div class="glass-panel modal-content">
+            <h2>Вступить в Лигу 🤝</h2>
+            <input type="text" id="join-league-code" class="glass-input" placeholder="Введите Invite Code..." maxlength="10" style="text-transform: uppercase; margin-top: 15px;">
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button id="cancel-join-league" class="glass-btn" style="background: rgba(255,255,255,0.1);">Отмена</button>
+                <button id="confirm-join-league" class="glass-btn primary-btn">Вступить</button>
+            </div>
+        </div>
+    </div>
+
     <div id="app-container" style="display: none;">
         
         <!-- ВКЛАДКА 1: TEAM -->
@@ -191,12 +229,44 @@
             </div>
             <div id="fantasy-players-list"></div>
         </div>
+        <!-- ВКЛАДКА 4: LEAGUES (Лиги) -->
+        <div id="tab-leagues" class="tab-content">
+            
+            <div class="stats-subnav">
+                <div class="league-tab active" data-target="leagues-general">🌍 Общий зачет</div>
+                <div class="league-tab" data-target="leagues-private">🤝 Мои лиги</div>
+            </div>
+
+            <!-- БЛОК 1: ОБЩИЙ ЗАЧЕТ -->
+            <div id="leagues-general" class="league-section active">
+                <div class="glass-panel" style="padding: 0; display: flex; flex-direction: column; height: 68vh; overflow: hidden; border-radius: 16px;">
+                    <div id="general-leaderboard-list" class="players-scroll-list" style="padding: 10px;">
+                        <div class="loading-text">Загрузка рейтинга...</div>
+                    </div>
+                    <!-- Приклеенная плашка юзера -->
+                    <div id="general-my-rank" class="my-rank-sticky" style="display: none;"></div>
+                </div>
+            </div>
+
+            <!-- БЛОК 2: МОИ ЛИГИ -->
+            <div id="leagues-private" class="league-section" style="display: none;">
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button class="glass-btn primary-btn" id="btn-show-create-league" style="font-size: 14px; padding: 12px;">➕ Создать</button>
+                    <button class="glass-btn" id="btn-show-join-league" style="font-size: 14px; padding: 12px; background: rgba(255,255,255,0.1);">🔗 Вступить</button>
+                </div>
+                <div id="my-leagues-list" style="padding-bottom: 20px;">
+                    <div class="loading-text">Загрузка лиг...</div>
+                </div>
+            </div>
+
+        </div>
     </div>
 
     <div class="bottom-nav">
-        <div class="nav-item active" data-target="tab-team">🏒 TEAM</div>
-        <div class="nav-item" data-target="tab-stats">📊 NHL STATS</div>
-        <div class="nav-item" data-target="tab-fantasy">🛒 FANTASY STATS</div>
+        <div class="nav-item active" data-target="tab-team">TEAM</div>
+        <div class="nav-item" data-target="tab-stats">NHL STATS</div>
+        <div class="nav-item" data-target="tab-fantasy">FANTASY STATS</div>
+        <div class="nav-item" data-target="tab-leagues">LEAGUES</div>
     </div>
     <script src="app.js?v=3"></script>
 </body>

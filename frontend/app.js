@@ -585,5 +585,198 @@ document.querySelector('.stats-tab[data-target="stats-scores"]').addEventListene
     }
 });
 
+// ==========================================
+// 🏆 ЛОГИКА LEAGUES (Лиги и Общий зачет)
+// ==========================================
+
+// Переключение внутренних вкладок
+const leagueTabs = document.querySelectorAll('.league-tab');
+const leagueSections = document.querySelectorAll('.league-section');
+leagueTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+        leagueTabs.forEach(t => t.classList.remove('active'));
+        leagueSections.forEach(s => s.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.getAttribute('data-target')).classList.add('active');
+    });
+});
+
+// Загрузка при открытии 4-й вкладки
+document.querySelector('.nav-item[data-target="tab-leagues"]').addEventListener('click', () => {
+    fetchGeneralLeaderboard();
+    fetchMyLeagues();
+});
+
+// 🌍 1. ОБЩИЙ ЗАЧЕТ
+async function fetchGeneralLeaderboard() {
+    try {
+        const res = await fetch(`/api/leagues/general?user_id=${userId}`);
+        const data = await res.json();
+        renderLeaderboard('general-leaderboard-list', data.leaderboard);
+        
+        // Личная плашка
+        const myRankDiv = document.getElementById('general-my-rank');
+        if (data.user_rank) {
+            myRankDiv.style.display = 'block';
+            myRankDiv.innerHTML = createLeaderboardItemHTML(data.user_rank, true);
+        } else {
+            myRankDiv.style.display = 'none';
+        }
+    } catch (e) {
+        console.error(e);
+        document.getElementById('general-leaderboard-list').innerHTML = "<div class='loading-text'>Ошибка загрузки рейтинга.</div>";
+    }
+}
+
+// 🤝 2. МОИ ЛИГИ
+async function fetchMyLeagues() {
+    try {
+        const res = await fetch(`/api/leagues/my?user_id=${userId}`);
+        const leagues = await res.json();
+        
+        const list = document.getElementById('my-leagues-list');
+        if (leagues.length === 0) {
+            list.innerHTML = "<div class='loading-text' style='padding-top:30px;'>Вы еще не состоите в частных лигах. Создайте свою или вступите по коду!</div>";
+            return;
+        }
+        
+        let html = '';
+        leagues.forEach(l => {
+            html += `
+            <div class="league-card" onclick="openPrivateLeague(${l.id}, '${l.name}', '${l.invite_code}')">
+                <div>
+                    <div class="league-card-title">${l.name}</div>
+                    <div class="league-card-code">Code: ${l.invite_code}</div>
+                </div>
+                <div style="color: var(--accent-blue); font-size: 20px;">➔</div>
+            </div>`;
+        });
+        list.innerHTML = html;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+// 🏆 3. ЛИДЕРБОРД ЧАСТНОЙ ЛИГИ
+async function openPrivateLeague(leagueId, name, code) {
+    document.getElementById('private-league-title').innerText = name;
+    document.getElementById('private-league-code').innerText = code;
+    document.getElementById('private-league-modal').style.display = 'flex';
+    document.getElementById('private-leaderboard-list').innerHTML = "<div class='loading-text'>Загрузка...</div>";
+    
+    try {
+        const res = await fetch(`/api/leagues/${leagueId}/leaderboard?user_id=${userId}`);
+        const data = await res.json();
+        renderLeaderboard('private-leaderboard-list', data.leaderboard);
+    } catch (e) {
+        console.error(e);
+    }
+}
+document.getElementById('close-private-league-btn').addEventListener('click', () => {
+    document.getElementById('private-league-modal').style.display = 'none';
+});
+
+// Генератор HTML для строчки лидерборда
+function createLeaderboardItemHTML(user, hideBottomMargin = false) {
+    let rankClass = '';
+    if (user.rank === 1) rankClass = 'rank-1';
+    else if (user.rank === 2) rankClass = 'rank-2';
+    else if (user.rank === 3) rankClass = 'rank-3';
+    
+    const meClass = user.is_me ? 'is-me' : '';
+    const margin = hideBottomMargin ? 'margin-bottom: 0;' : '';
+
+    return `
+    <div class="leaderboard-item ${meClass}" style="${margin}">
+        <div class="rank-badge ${rankClass}">${user.rank}</div>
+        <div class="lb-user-info">${user.name}</div>
+        <div class="lb-points">${Math.round(user.points)} FC</div>
+    </div>`;
+}
+
+function renderLeaderboard(containerId, leaderboardData) {
+    const list = document.getElementById(containerId);
+    if (!leaderboardData || leaderboardData.length === 0) {
+        list.innerHTML = "<div class='loading-text'>Рейтинг пуст.</div>";
+        return;
+    }
+    let html = '';
+    leaderboardData.forEach(u => html += createLeaderboardItemHTML(u));
+    list.innerHTML = html;
+}
+
+// 🛠 4. СОЗДАНИЕ И ВСТУПЛЕНИЕ В ЛИГИ (Модалки)
+document.getElementById('btn-show-create-league').addEventListener('click', () => {
+    document.getElementById('create-league-name').value = '';
+    document.getElementById('create-league-modal').style.display = 'flex';
+});
+document.getElementById('cancel-create-league').addEventListener('click', () => {
+    document.getElementById('create-league-modal').style.display = 'none';
+});
+
+document.getElementById('confirm-create-league').addEventListener('click', async () => {
+    const name = document.getElementById('create-league-name').value.trim();
+    if (name.length < 3) { tg.showAlert("Название должно быть от 3 символов!"); return; }
+    
+    const btn = document.getElementById('confirm-create-league');
+    btn.disabled = true; btn.innerText = "...";
+    
+    try {
+        const res = await fetch('/api/leagues/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId, name: name })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            tg.showAlert(`✅ Лига создана!\nInvite Code: ${data.invite_code}`);
+            document.getElementById('create-league-modal').style.display = 'none';
+            fetchMyLeagues(); // Обновляем список
+        } else {
+            tg.showAlert("❌ Ошибка: " + (data.detail || "Не удалось создать"));
+        }
+    } catch (e) {
+        console.error(e); tg.showAlert("❌ Ошибка сети");
+    } finally {
+        btn.disabled = false; btn.innerText = "Создать";
+    }
+});
+
+document.getElementById('btn-show-join-league').addEventListener('click', () => {
+    document.getElementById('join-league-code').value = '';
+    document.getElementById('join-league-modal').style.display = 'flex';
+});
+document.getElementById('cancel-join-league').addEventListener('click', () => {
+    document.getElementById('join-league-modal').style.display = 'none';
+});
+
+document.getElementById('confirm-join-league').addEventListener('click', async () => {
+    const code = document.getElementById('join-league-code').value.trim().toUpperCase();
+    if (code.length < 4) { tg.showAlert("Некорректный код!"); return; }
+    
+    const btn = document.getElementById('confirm-join-league');
+    btn.disabled = true; btn.innerText = "...";
+    
+    try {
+        const res = await fetch('/api/leagues/join', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId, invite_code: code })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            tg.showAlert(`🎉 Вы успешно вступили в лигу:\n${data.league_name}`);
+            document.getElementById('join-league-modal').style.display = 'none';
+            fetchMyLeagues(); // Обновляем список
+        } else {
+            tg.showAlert("❌ Ошибка: " + (data.detail || "Не удалось вступить"));
+        }
+    } catch (e) {
+        console.error(e); tg.showAlert("❌ Ошибка сети");
+    } finally {
+        btn.disabled = false; btn.innerText = "Вступить";
+    }
+});
+
 initApp();
 

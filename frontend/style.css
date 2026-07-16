@@ -346,3 +346,49 @@ body {
 .period-divider:first-child {
     margin-top: 0;
 }
+
+/* --- Стили для Вкладки Leagues --- */
+.league-tab {
+    flex: 1; text-align: center; padding: 10px 0; font-size: 14px;
+    font-weight: 600; color: var(--text-muted); border-radius: 8px;
+    transition: 0.2s; cursor: pointer;
+}
+.league-tab.active { background: var(--glass-bg); color: var(--text-main); border: 1px solid var(--glass-border); }
+.league-section { display: none; }
+.league-section.active { display: block; animation: fadeIn 0.3s ease; }
+
+/* Рейтинг (Лидерборд) */
+.leaderboard-item {
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(255,255,255,0.03); padding: 12px 15px;
+    border-radius: 12px; margin-bottom: 8px; border: 1px solid transparent;
+}
+.leaderboard-item.is-me { background: rgba(58, 134, 255, 0.15); border-color: rgba(58, 134, 255, 0.3); }
+.rank-badge {
+    width: 30px; height: 30px; border-radius: 50%; display: flex;
+    justify-content: center; align-items: center; font-weight: 800; font-size: 14px;
+    background: #1e293b; color: var(--text-muted); margin-right: 12px;
+}
+.rank-1 { background: #FFD700; color: #000; box-shadow: 0 0 10px rgba(255,215,0,0.5); } /* Золото */
+.rank-2 { background: #C0C0C0; color: #000; } /* Серебро */
+.rank-3 { background: #CD7F32; color: #fff; } /* Бронза */
+
+.lb-user-info { flex-grow: 1; font-weight: 600; font-size: 15px; }
+.lb-points { font-size: 16px; font-weight: 800; color: var(--accent-green); }
+
+/* Прилипшая личная плашка */
+.my-rank-sticky {
+    background: var(--bg-main); border-top: 1px solid var(--glass-border);
+    padding: 10px; box-shadow: 0 -4px 10px rgba(0,0,0,0.2); z-index: 10;
+}
+
+/* Карточка частной лиги */
+.league-card {
+    background: var(--glass-bg); border: 1px solid var(--glass-border);
+    border-radius: 16px; padding: 16px; margin-bottom: 12px;
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer; transition: 0.2s;
+}
+.league-card:active { transform: scale(0.98); }
+.league-card-title { font-size: 16px; font-weight: 700; margin-bottom: 5px; }
+.league-card-code { font-size: 12px; color: var(--text-muted); }
