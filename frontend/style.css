@@ -47,6 +47,27 @@ body {
 .market-overlay { align-items: flex-end; display: flex; }
 .market-content { position: absolute; bottom: 0; left: 0; width: 100%; height: 85vh; background: var(--bg-dark); border-radius: 24px 24px 0 0; display: flex; flex-direction: column; padding: 0; border-top: 1px solid var(--glass-border); animation: slideUp 0.3s ease-out; box-sizing: border-box; }
 @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+/* Окно Лиги (Выезжает сверху) */
+.league-modal-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%; 
+    height: 85vh; 
+    background: var(--bg-dark); 
+    border-radius: 0 0 24px 24px; /* Скругление теперь снизу */
+    display: flex; 
+    flex-direction: column;
+    padding: 0;
+    border-bottom: 1px solid var(--glass-border);
+    animation: slideDown 0.3s ease-out;
+    box-sizing: border-box;
+}
+
+@keyframes slideDown {
+    from { transform: translateY(-100%); }
+    to { transform: translateY(0); }
+}
 .market-header { display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid var(--glass-border); }
 .market-header h3 { margin: 0; font-size: 18px; }
 .icon-btn { background: none; border: none; color: var(--text-muted); font-size: 24px; cursor: pointer; padding: 0; }
@@ -160,3 +181,22 @@ body {
 .league-card-title { font-size: 16px; font-weight: 700; margin-bottom: 5px; }
 .league-card-code { font-size: 12px; color: var(--text-muted); }
 .loading-text { text-align: center; color: var(--text-muted); padding: 30px; }
+
+/* 🌟 ФИКС ДЛЯ МОБИЛЬНЫХ КЛИКОВ */
+.player-slot, .glass-btn, .pick-btn, .icon-btn { touch-action: manipulation; }
+.player-slot *, .glass-btn *, .pick-btn * { pointer-events: none; }
+
+/* 🌟 ЭФФЕКТ СПОЙЛЕРА (БЛЮР) ДЛЯ КОДА */
+.spoiler { 
+    filter: blur(5px); 
+    cursor: pointer; 
+    transition: filter 0.3s ease; 
+    background: rgba(0,230,118,0.1); 
+    padding: 2px 6px; 
+    border-radius: 4px; 
+}
+.spoiler.revealed { filter: blur(0); }
+
+/* Фикс для Лиг */
+.league-card { position: relative; } /* Чтобы не сползала вниз */
+.private-modal-fix { position: absolute; bottom: 0; }

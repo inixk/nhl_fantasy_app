@@ -41,7 +41,6 @@ class League(Base):
     members: Mapped[List["LeagueMember"]] = relationship(back_populates="league")
 
 class LeagueMember(Base):
-    """Профиль пользователя внутри конкретной лиги (его команда, баланс, очки)."""
     __tablename__ = "league_members"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -49,16 +48,16 @@ class LeagueMember(Base):
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
     team_name: Mapped[str] = mapped_column(String(128), default="My Team")
     
-    # 🌟 ЭКОНОМИКА И ОЧКИ
     total_points: Mapped[float] = mapped_column(Float, default=0.0)
-    budget: Mapped[float] = mapped_column(Float, default=10000.0) # Стартовый капитал
-    transfers_used: Mapped[int] = mapped_column(Integer, default=0) # Лимит 6 в неделю
+    budget: Mapped[float] = mapped_column(Float, default=10000.0)
+    transfers_used: Mapped[int] = mapped_column(Integer, default=0) 
     
-    # 🌟 КАПИТАН (ID игрока из nhl_players)
+    # 🌟 НОВОЕ ПОЛЕ: Лимит смены капитана (1 раз в неделю)
+    captain_changes_used: Mapped[int] = mapped_column(Integer, default=0)
+    
     captain_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("nhl_players.id"), nullable=True)
     joined_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     
-    # Связи
     league: Mapped["League"] = relationship(back_populates="members")
     user: Mapped["User"] = relationship(back_populates="memberships")
     roster: Mapped[List["RosterPlayer"]] = relationship(back_populates="member", cascade="all, delete-orphan")

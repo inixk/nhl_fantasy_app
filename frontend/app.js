@@ -1,4 +1,3 @@
-ъ// frontend/app.js
 const tg = window.Telegram.WebApp;
 tg.expand();
 
@@ -36,9 +35,19 @@ function populateTeamFilters() {
 }
 populateTeamFilters();
 
-// ==========================================
-// 1. ОНБОРДИНГ И ГЛАВНАЯ НАВИГАЦИЯ
-// ==========================================
+// 🌟 УМНАЯ ЗАДЕРЖКА (DEBOUNCE) ДЛЯ ФИЛЬТРОВ БЕЗ ЛАГОВ
+function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
+const renderFantasyStatsDebounced = debounce(renderFantasyStats, 800);
+const renderMarketDebounced = debounce(renderMarket, 800);
+
+// --- НАВИГАЦИЯ ---
 const welcomeModal = document.getElementById('welcome-modal');
 const appContainer = document.getElementById('app-container');
 
@@ -59,7 +68,6 @@ if (!localStorage.getItem('nhl_onboarding_done')) {
 document.getElementById('info-btn')?.addEventListener('click', () => document.getElementById('info-modal').style.display = 'flex');
 document.getElementById('close-info-btn')?.addEventListener('click', () => document.getElementById('info-modal').style.display = 'none');
 
-// Главное нижнее меню
 const navItems = document.querySelectorAll('.nav-item');
 const tabContents = document.querySelectorAll('.tab-content');
 navItems.forEach(item => {
@@ -69,7 +77,6 @@ navItems.forEach(item => {
         item.classList.add('active');
         document.getElementById(item.getAttribute('data-target')).classList.add('active');
 
-        // Подгружаем лиги только когда переходим в эту вкладку
         if (item.getAttribute('data-target') === 'tab-leagues') {
             fetchGeneralLeaderboard();
             fetchMyLeagues();
@@ -77,19 +84,15 @@ navItems.forEach(item => {
     });
 });
 
-// 🌟 УНИВЕРСАЛЬНЫЕ ВНУТРЕННИЕ ВКЛАДКИ (NHL STATS И LEAGUES)
 document.querySelectorAll('.segment-tab').forEach(tab => {
     tab.addEventListener('click', () => {
         const group = tab.getAttribute('data-group');
-        
-        // Сбрасываем только вкладки этой группы
         document.querySelectorAll(`.segment-tab[data-group="${group}"]`).forEach(t => t.classList.remove('active'));
         document.querySelectorAll(`.sub-section[data-group="${group}"]`).forEach(s => s.classList.remove('active'));
         
         tab.classList.add('active');
         document.getElementById(tab.getAttribute('data-target')).classList.add('active');
 
-        // Подгружаем данные по требованию
         if (tab.getAttribute('data-target') === 'stats-leaders') {
             if (document.getElementById('leaders-table-container').innerHTML.includes('Выберите')) fetchLeaders();
         }
@@ -99,16 +102,13 @@ document.querySelectorAll('.segment-tab').forEach(tab => {
     });
 });
 
-// ==========================================
-// 2. ИНИЦИАЛИЗАЦИЯ И СБОРКА КОМАНДЫ
-// ==========================================
 async function initApp() {
     try {
         const response = await fetch('/api/players');
         allPlayers = await response.json();
         renderFantasyStats();
         await fetchMyTeam();
-        fetchStandings(); // Грузим таблицы НХЛ
+        fetchStandings();
     } catch (error) { console.error("Error fetching players:", error); }
 }
 
@@ -116,8 +116,14 @@ async function fetchMyTeam() {
     try {
         const response = await fetch(`/api/my_team?user_id=${userId}`);
         const data = await response.json();
+        
         balance = data.balance;
         captainId = data.captain_id;
+        
+        // 🌟 ОБНОВЛЯЕМ СЧЕТЧИК ЗАМЕН НА ЭКРАНЕ
+        const transfersLeft = 6 - (data.transfers_used || 0);
+        document.getElementById('current-changes').innerText = transfersLeft;
+        
         myRoster = { F: [null,null,null,null,null,null,null,null,null], D: [null,null,null,null,null,null], G: [null,null] };
         
         let fIndex = 0, dIndex = 0, gIndex = 0;
@@ -192,17 +198,20 @@ function renderMarket() {
     filtered.slice(0, 50).forEach(p => { list.innerHTML += createPlayerCardHTML(p, true); });
 }
 
-// Слушатели поиска и фильтров рынка
-['fantasy-search', 'fantasy-pos-filter', 'fantasy-team-filter', 'fantasy-sort', 'fantasy-min-price', 'fantasy-max-price'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.addEventListener('change', renderFantasyStats); el.addEventListener('input', renderFantasyStats); }
+// Слушатели с задержкой (Debounce)
+['fantasy-search', 'fantasy-min-price', 'fantasy-max-price'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', renderFantasyStatsDebounced);
 });
-['market-search', 'market-team-filter', 'market-sort', 'market-min-price', 'market-max-price'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.addEventListener('change', renderMarket); el.addEventListener('input', renderMarket); }
+['fantasy-pos-filter', 'fantasy-team-filter', 'fantasy-sort'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', renderFantasyStats);
+});
+['market-search', 'market-min-price', 'market-max-price'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', renderMarketDebounced);
+});
+['market-team-filter', 'market-sort'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', renderMarket);
 });
 
-// Клик по слоту команды
 document.querySelectorAll('.player-slot').forEach(slot => {
     slot.addEventListener('click', function() {
         const pos = this.getAttribute('data-pos');
@@ -235,14 +244,12 @@ document.querySelectorAll('.player-slot').forEach(slot => {
 
         currentTransferSlot = { pos, index };
         document.getElementById('market-pos-badge').innerText = pos;
-        document.getElementById('market-modal').style.display = 'flex';
+        document.getElementById('market-modal').style.display = 'block';
         renderMarket();
     });
 });
 
-document.getElementById('close-market-btn')?.addEventListener('click', () => {
-    document.getElementById('market-modal').style.display = 'none';
-});
+document.getElementById('close-market-btn')?.addEventListener('click', () => { document.getElementById('market-modal').style.display = 'none'; });
 
 window.buyPlayer = function(playerId) {
     const player = allPlayers.find(p => p.id === playerId);
@@ -297,6 +304,7 @@ function updateTeamUI() {
     }
 }
 
+// 🌟 ЖЕСТКОЕ ЛОГИРОВАНИЕ ОШИБКИ СОХРАНЕНИЯ
 document.getElementById('save-team-btn')?.addEventListener('click', async () => {
     if (!captainId) { tg.showAlert("⚠️ Please select a Captain (C) before saving!"); return; }
 
@@ -313,10 +321,17 @@ document.getElementById('save-team-btn')?.addEventListener('click', async () => 
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user_id: userId, user_name: userName, roster_ids: rosterIds, balance: balance, captain_id: captainId })
                 });
-                if (response.ok) { tg.showAlert("✅ Roster saved successfully!"); tg.HapticFeedback.notificationOccurred('success'); } 
-                else { throw new Error("Server Error"); }
+                const responseData = await response.json();
+
+                if (response.ok) { 
+                    tg.showAlert("✅ Roster saved successfully!"); 
+                    tg.HapticFeedback.notificationOccurred('success'); 
+                } else { 
+                    throw new Error(responseData.detail || "Server Error"); 
+                }
             } catch (err) {
-                console.error(err); tg.showAlert("❌ Error saving team");
+                console.error("SAVE ERROR:", err); 
+                tg.showAlert("❌ Error saving team: " + err.message);
             } finally {
                 saveBtn.innerText = "Save changes"; saveBtn.style.background = "var(--glass-border)";
                 fetchMyTeam(); 
@@ -326,7 +341,7 @@ document.getElementById('save-team-btn')?.addEventListener('click', async () => 
 });
 
 // ==========================================
-// 3. NHL STATS
+// 5. NHL STATS (Таблицы, Лидеры, Матчи)
 // ==========================================
 let currentStandings = [];
 async function fetchStandings() {
@@ -421,7 +436,7 @@ async function fetchScores() {
 }
 
 // ==========================================
-// 4. LEAGUES (Лиги)
+// 6. LEAGUES (Лиги)
 // ==========================================
 async function fetchGeneralLeaderboard() {
     try {
@@ -443,15 +458,34 @@ async function fetchMyLeagues() {
         const list = document.getElementById('my-leagues-list');
         if (leagues.length === 0) { list.innerHTML = "<div class='loading-text' style='padding-top:30px;'>Вы еще не состоите в частных лигах. Создайте свою или вступите по коду!</div>"; return; }
         let html = '';
-        leagues.forEach(l => { html += `<div class="league-card" onclick="openPrivateLeague(${l.id}, '${l.name}', '${l.invite_code}')"><div><div class="league-card-title">${l.name}</div><div class="league-card-code">Code: <b style="color:var(--accent-green)">${l.invite_code}</b></div></div><div style="color: var(--accent-blue); font-size: 20px;">➔</div></div>`; });
+        leagues.forEach(l => { 
+            // Убрали инвайт-код, добавили имя лучшего менеджера
+            html += `<div class="league-card" onclick="openPrivateLeague(${l.id}, '${l.name}', '${l.invite_code}')"><div><div class="league-card-title">${l.name}</div><div class="league-card-code">${l.top_manager}</div></div><div style="color: var(--accent-blue); font-size: 20px;">➔</div></div>`; 
+        });
         list.innerHTML = html;
     } catch (e) { console.error(e); }
 }
 
 async function openPrivateLeague(leagueId, name, code) {
     document.getElementById('private-league-title').innerText = name;
-    document.getElementById('private-league-code').innerText = code;
-    document.getElementById('private-league-modal').style.display = 'flex';
+    
+    // 🌟 СПОЙЛЕР ДЛЯ ИНВАЙТ-КОДА С КОПИРОВАНИЕМ
+    const codeEl = document.getElementById('private-league-code');
+    codeEl.innerText = code;
+    codeEl.className = 'spoiler'; // Вешаем блюр
+    
+    // Удаляем старые слушатели, чтобы не копировалось 10 раз
+    const newCodeEl = codeEl.cloneNode(true);
+    codeEl.parentNode.replaceChild(newCodeEl, codeEl);
+    
+    newCodeEl.addEventListener('click', function() {
+        this.classList.add('revealed');
+        navigator.clipboard.writeText(this.innerText).then(() => {
+            tg.showAlert("✅ Invite Code скопирован в буфер обмена!");
+        });
+    });
+
+    document.getElementById('private-league-modal').style.display = 'block';
     document.getElementById('private-leaderboard-list').innerHTML = "<div class='loading-text'>Загрузка...</div>";
     try {
         const res = await fetch(`/api/leagues/${leagueId}/leaderboard?user_id=${userId}`);
@@ -474,12 +508,7 @@ function renderLeaderboard(containerId, leaderboardData) {
     list.innerHTML = html;
 }
 
-// Создать лигу
-document.getElementById('btn-show-create-league')?.addEventListener('click', () => { 
-    document.getElementById('create-league-name').value = ''; 
-    document.getElementById('create-team-name').value = ''; 
-    document.getElementById('create-league-modal').style.display = 'flex'; 
-});
+document.getElementById('btn-show-create-league')?.addEventListener('click', () => { document.getElementById('create-league-name').value = ''; document.getElementById('create-team-name').value = ''; document.getElementById('create-league-modal').style.display = 'flex'; });
 document.getElementById('cancel-create-league')?.addEventListener('click', () => { document.getElementById('create-league-modal').style.display = 'none'; });
 
 document.getElementById('confirm-create-league')?.addEventListener('click', async () => {
@@ -497,12 +526,7 @@ document.getElementById('confirm-create-league')?.addEventListener('click', asyn
     } catch (e) { tg.showAlert("❌ Ошибка сети"); } finally { btn.disabled = false; btn.innerText = "Создать"; }
 });
 
-// Вступить в лигу
-document.getElementById('btn-show-join-league')?.addEventListener('click', () => { 
-    document.getElementById('join-league-code').value = ''; 
-    document.getElementById('join-team-name').value = ''; 
-    document.getElementById('join-league-modal').style.display = 'flex'; 
-});
+document.getElementById('btn-show-join-league')?.addEventListener('click', () => { document.getElementById('join-league-code').value = ''; document.getElementById('join-team-name').value = ''; document.getElementById('join-league-modal').style.display = 'flex'; });
 document.getElementById('cancel-join-league')?.addEventListener('click', () => { document.getElementById('join-league-modal').style.display = 'none'; });
 
 document.getElementById('confirm-join-league')?.addEventListener('click', async () => {
@@ -519,3 +543,5 @@ document.getElementById('confirm-join-league')?.addEventListener('click', async 
         else { tg.showAlert("❌ Ошибка: " + (data.detail || "Не удалось вступить")); }
     } catch (e) { tg.showAlert("❌ Ошибка сети"); } finally { btn.disabled = false; btn.innerText = "Вступить"; }
 });
+
+initApp();
