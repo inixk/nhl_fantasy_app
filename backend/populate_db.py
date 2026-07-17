@@ -1,6 +1,7 @@
 # backend/populate_db.py
 import asyncio
 import logging
+import math # 🌟 ДОБАВЛЕН ИМПОРТ MATH ДЛЯ ОКРУГЛЕНИЯ
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -15,9 +16,7 @@ async def populate():
     await init_db()
     logger.info("Database tables created.")
     
-    # 🌟 ИСПОЛЬЗУЕМ АКТУАЛЬНЫЙ СЕЗОН 2025/2026
     current_season = "20252026"
-    
     logger.info(f"Fetching NHL rosters for {current_season}...")
     players_data = await nhl_api.get_all_teams_roster(current_season)
     
@@ -44,12 +43,12 @@ async def populate():
                     team_abbr=p.get("team_abbr", ""),
                     position=position,
                     headshot_url=p.get("headshot", ""),
-                    price=1000.0
+                    price=400.0 # Базовая минималка до расчета
                 )
                 session.add(new_player)
         await session.commit()
 
-    logger.info(f"Calculating Fantasy Prices based on {current_season} game logs...")
+    logger.info(f"Calculating Prices and ZEROING stats for Season Start...")
     async with async_session() as session:
         result = await session.execute(select(NHLPlayer))
         all_players = result.scalars().all()
@@ -57,6 +56,10 @@ async def populate():
         for player in all_players:
             game_log = await nhl_api._request(f"player/{player.id}/game-log/{current_season}/2")
             if not game_log or "gameLog" not in game_log:
+                # Если игрок вообще не играл в прошлом сезоне, ставим ему минималку 400 FC
+                player.price = 400.0
+                player.fantasy_points = 0.0
+                player.games_played = 0
                 continue
                 
             games = game_log["gameLog"]
@@ -69,8 +72,8 @@ async def populate():
                     ga = g.get("goalsAgainst", 0)
                     shutout = g.get("shutouts", 0)
                     win = g.get("decision") == "W"
-                    # Используем новые баффнутые статы
-                    points += (saves * 0.4) - (ga * 1.5)
+                    # Баффнутые статы вратарей
+                    points += (saves * 0.4) - (ga * 1.0)
                     if shutout > 0: points += 10.0
                     if win: points += 6.0
                 else:
@@ -89,16 +92,20 @@ async def populate():
             else:
                 expected_season_pts = 0
                 
-            player.fantasy_points = points
-            player.games_played = gp
+            # 🌟 ФОРМУЛА СТОИМОСТИ (Множитель 1.8 + 100 FC + Округление до сотен ВВЕРХ)
+            raw_price = (expected_season_pts * 1.8) + 100
+            final_price = math.ceil(raw_price / 100) * 100
             
-            calculated_price = expected_season_pts * 1.1
-            player.price = max(250.0, round(calculated_price / 10) * 10)  
+            # Минимальная цена - 400 FC
+            player.price = max(400.0, float(final_price))
+            
+            # 🌟 ОБНУЛЯЕМ ОЧКИ! (Симулируем старт сезона)
+            player.fantasy_points = 0.0
+            player.games_played = 0
             
         await session.commit()
-        logger.info("Prices calculated and saved!")
+        logger.info("Database is ready for Season Start! 0 Points, Calculated Prices.")
 
-    # Закрываем сессию aiohttp, чтобы не было ошибки "Unclosed client session"
     await nhl_api.close()
 
 if __name__ == "__main__":

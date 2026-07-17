@@ -20,7 +20,7 @@ class ScoringService:
 
             # 🌟 БАФФ ВРАТАРЕЙ ДЛЯ БАЛАНСА ЭКОНОМИКИ
             points += saves * 0.4
-            points -= goals_against * 1.5
+            points -= goals_against * 1
             if shutout > 0: points += 10.0
             if win: points += 6.0
             points -= pim * 0.2

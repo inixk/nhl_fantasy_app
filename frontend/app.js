@@ -1,3 +1,4 @@
+// frontend/app.js
 const tg = window.Telegram.WebApp;
 tg.expand();
 
@@ -6,6 +7,10 @@ let currentTransferSlot = { pos: null, index: null };
 let balance = 10000; 
 let captainId = null; 
 let myRoster = { F: [null,null,null,null,null,null,null,null,null], D: [null,null,null,null,null,null], G: [null,null] };
+
+// 🌟 ДЛЯ ОТСЛЕЖИВАНИЯ ИЗМЕНЕНИЙ
+let savedRosterString = "";
+let savedCaptainId = null;
 
 const teamColors = {
     'ANA': '#F47A38', 'BOS': '#FFB81C', 'BUF': '#002654', 'CGY': '#C8102E', 'CAR': '#CC0000', 'CHI': '#CF0A2C', 'COL': '#6F263D', 'CBJ': '#002654',
@@ -35,7 +40,6 @@ function populateTeamFilters() {
 }
 populateTeamFilters();
 
-// 🌟 УМНАЯ ЗАДЕРЖКА (DEBOUNCE) ДЛЯ ФИЛЬТРОВ БЕЗ ЛАГОВ
 function debounce(func, wait) {
     let timeout;
     return function(...args) {
@@ -44,8 +48,8 @@ function debounce(func, wait) {
     };
 }
 
-const renderFantasyStatsDebounced = debounce(renderFantasyStats, 800);
-const renderMarketDebounced = debounce(renderMarket, 800);
+const renderFantasyStatsDebounced = debounce(renderFantasyStats, 400);
+const renderMarketDebounced = debounce(renderMarket, 400);
 
 // --- НАВИГАЦИЯ ---
 const welcomeModal = document.getElementById('welcome-modal');
@@ -119,8 +123,8 @@ async function fetchMyTeam() {
         
         balance = data.balance;
         captainId = data.captain_id;
+        savedCaptainId = data.captain_id; // Сохраняем состояние
         
-        // 🌟 ОБНОВЛЯЕМ СЧЕТЧИК ЗАМЕН НА ЭКРАНЕ
         const transfersLeft = 6 - (data.transfers_used || 0);
         document.getElementById('current-changes').innerText = transfersLeft;
         
@@ -135,6 +139,12 @@ async function fetchMyTeam() {
                 if (item.pos === 'G' && gIndex < 2) myRoster.G[gIndex++] = playerObj;
             }
         });
+
+        // 🌟 СОХРАНЯЕМ СТЕПОК РОСТЕРА
+        let currentIds = [];
+        ['F', 'D', 'G'].forEach(pos => { myRoster[pos].forEach(p => { currentIds.push(p ? p.id : null); }); });
+        savedRosterString = JSON.stringify(currentIds);
+
         updateTeamUI();
     } catch (error) { console.error("Error fetching my team:", error); }
 }
@@ -142,6 +152,7 @@ async function fetchMyTeam() {
 function createPlayerCardHTML(p, showBuyButton = false) {
     let ptsClass = p.points > 0 ? 'pts-positive' : (p.points < 0 ? 'pts-negative' : 'pts-neutral');
     let ptsPrefix = p.points > 0 ? '+' : '';
+    // Очки теперь всегда 0, поэтому мы просто покажем их как есть
     let rightSide = `<div class="player-right"><span class="pts-value ${ptsClass}">${ptsPrefix}${Math.round(p.points)}</span><span class="pts-label">PTS</span></div>`;
     if (showBuyButton) rightSide = `<div class="player-right"><button class="pick-btn" onclick="buyPlayer(${p.id})">Pick✅</button></div>`;
     
@@ -199,18 +210,10 @@ function renderMarket() {
 }
 
 // Слушатели с задержкой (Debounce)
-['fantasy-search', 'fantasy-min-price', 'fantasy-max-price'].forEach(id => {
-    document.getElementById(id)?.addEventListener('input', renderFantasyStatsDebounced);
-});
-['fantasy-pos-filter', 'fantasy-team-filter', 'fantasy-sort'].forEach(id => {
-    document.getElementById(id)?.addEventListener('change', renderFantasyStats);
-});
-['market-search', 'market-min-price', 'market-max-price'].forEach(id => {
-    document.getElementById(id)?.addEventListener('input', renderMarketDebounced);
-});
-['market-team-filter', 'market-sort'].forEach(id => {
-    document.getElementById(id)?.addEventListener('change', renderMarket);
-});
+['fantasy-search', 'fantasy-min-price', 'fantasy-max-price'].forEach(id => { document.getElementById(id)?.addEventListener('input', renderFantasyStatsDebounced); });
+['fantasy-pos-filter', 'fantasy-team-filter', 'fantasy-sort'].forEach(id => { document.getElementById(id)?.addEventListener('change', renderFantasyStats); });
+['market-search', 'market-min-price', 'market-max-price'].forEach(id => { document.getElementById(id)?.addEventListener('input', renderMarketDebounced); });
+['market-team-filter', 'market-sort'].forEach(id => { document.getElementById(id)?.addEventListener('change', renderMarket); });
 
 document.querySelectorAll('.player-slot').forEach(slot => {
     slot.addEventListener('click', function() {
@@ -270,10 +273,12 @@ window.buyPlayer = function(playerId) {
 function updateTeamUI() {
     document.getElementById('current-balance').innerText = balance;
     let isFull = true;
+    let currentIds = [];
 
     ['F', 'D', 'G'].forEach(pos => {
         const domSlots = document.querySelectorAll(`.player-slot[data-pos="${pos}"]`);
         myRoster[pos].forEach((player, i) => {
+            currentIds.push(player ? player.id : null);
             const domSlot = domSlots[i];
             if (player) {
                 const lastName = player.name.split(' ').pop();
@@ -294,17 +299,24 @@ function updateTeamUI() {
         });
     });
 
+    // 🌟 ЛОГИКА ОТОБРАЖЕНИЯ КНОПКИ SAVE
     const saveBtn = document.getElementById('save-team-btn');
-    if (isFull && balance >= 0) {
-        saveBtn.removeAttribute('disabled');
-        saveBtn.style.background = "linear-gradient(135deg, #00E676, #00C853)";
+    const hasChanges = JSON.stringify(currentIds) !== savedRosterString || captainId !== savedCaptainId;
+
+    if (hasChanges) {
+        saveBtn.style.display = 'block'; // Показываем кнопку только если есть изменения!
+        if (isFull && balance >= 0) {
+            saveBtn.removeAttribute('disabled');
+            saveBtn.style.background = "linear-gradient(135deg, #00E676, #00C853)";
+        } else {
+            saveBtn.setAttribute('disabled', 'true');
+            saveBtn.style.background = "var(--glass-border)";
+        }
     } else {
-        saveBtn.setAttribute('disabled', 'true');
-        saveBtn.style.background = "var(--glass-border)";
+        saveBtn.style.display = 'none'; // Скрываем, если состав как в базе
     }
 }
 
-// 🌟 ЖЕСТКОЕ ЛОГИРОВАНИЕ ОШИБКИ СОХРАНЕНИЯ
 document.getElementById('save-team-btn')?.addEventListener('click', async () => {
     if (!captainId) { tg.showAlert("⚠️ Please select a Captain (C) before saving!"); return; }
 
@@ -326,12 +338,9 @@ document.getElementById('save-team-btn')?.addEventListener('click', async () => 
                 if (response.ok) { 
                     tg.showAlert("✅ Roster saved successfully!"); 
                     tg.HapticFeedback.notificationOccurred('success'); 
-                } else { 
-                    throw new Error(responseData.detail || "Server Error"); 
-                }
+                } else { throw new Error(responseData.detail || "Server Error"); }
             } catch (err) {
-                console.error("SAVE ERROR:", err); 
-                tg.showAlert("❌ Error saving team: " + err.message);
+                console.error("SAVE ERROR:", err); tg.showAlert("❌ Error saving team: " + err.message);
             } finally {
                 saveBtn.innerText = "Save changes"; saveBtn.style.background = "var(--glass-border)";
                 fetchMyTeam(); 
@@ -343,13 +352,11 @@ document.getElementById('save-team-btn')?.addEventListener('click', async () => 
 // ==========================================
 // 5. NHL STATS (Таблицы, Лидеры, Матчи)
 // ==========================================
+// ... (остальной код NHL Stats и Leagues остается без изменений) ...
 let currentStandings = [];
 async function fetchStandings() {
-    try {
-        const res = await fetch('/api/nhl/standings');
-        currentStandings = await res.json();
-        renderStandings();
-    } catch (e) { document.getElementById('standings-table-container').innerHTML = "<div class='loading-text'>Ошибка загрузки таблиц.</div>"; }
+    try { const res = await fetch('/api/nhl/standings'); currentStandings = await res.json(); renderStandings(); } 
+    catch (e) { document.getElementById('standings-table-container').innerHTML = "<div class='loading-text'>Ошибка загрузки таблиц.</div>"; }
 }
 
 function renderStandings() {
@@ -459,7 +466,6 @@ async function fetchMyLeagues() {
         if (leagues.length === 0) { list.innerHTML = "<div class='loading-text' style='padding-top:30px;'>Вы еще не состоите в частных лигах. Создайте свою или вступите по коду!</div>"; return; }
         let html = '';
         leagues.forEach(l => { 
-            // Убрали инвайт-код, добавили имя лучшего менеджера
             html += `<div class="league-card" onclick="openPrivateLeague(${l.id}, '${l.name}', '${l.invite_code}')"><div><div class="league-card-title">${l.name}</div><div class="league-card-code">${l.top_manager}</div></div><div style="color: var(--accent-blue); font-size: 20px;">➔</div></div>`; 
         });
         list.innerHTML = html;
@@ -468,21 +474,14 @@ async function fetchMyLeagues() {
 
 async function openPrivateLeague(leagueId, name, code) {
     document.getElementById('private-league-title').innerText = name;
-    
-    // 🌟 СПОЙЛЕР ДЛЯ ИНВАЙТ-КОДА С КОПИРОВАНИЕМ
     const codeEl = document.getElementById('private-league-code');
     codeEl.innerText = code;
-    codeEl.className = 'spoiler'; // Вешаем блюр
-    
-    // Удаляем старые слушатели, чтобы не копировалось 10 раз
+    codeEl.className = 'spoiler'; 
     const newCodeEl = codeEl.cloneNode(true);
     codeEl.parentNode.replaceChild(newCodeEl, codeEl);
-    
     newCodeEl.addEventListener('click', function() {
         this.classList.add('revealed');
-        navigator.clipboard.writeText(this.innerText).then(() => {
-            tg.showAlert("✅ Invite Code скопирован в буфер обмена!");
-        });
+        navigator.clipboard.writeText(this.innerText).then(() => { tg.showAlert("✅ Invite Code скопирован в буфер обмена!"); });
     });
 
     document.getElementById('private-league-modal').style.display = 'block';
