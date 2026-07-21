@@ -308,8 +308,7 @@ async def get_league_leaderboard(league_id: int, user_id: int, db: AsyncSession 
 @router.get("/player/{player_id}/logs")
 async def get_player_logs(player_id: int, db: AsyncSession = Depends(get_db)):
     player = await db.get(NHLPlayer, player_id)
-    if not player:
-        raise HTTPException(status_code=404, detail="Player not found")
+    if not player: raise HTTPException(status_code=404, detail="Player not found")
         
     now = datetime.utcnow()
     season = f"{now.year}{now.year+1}" if now.month >= 9 else f"{now.year-1}{now.year}"
@@ -325,9 +324,11 @@ async def get_player_logs(player_id: int, db: AsyncSession = Depends(get_db)):
     logs = []
     for g in games:
         pts = 0.0
-        # 🌟 ДОСТАЕМ ИГРОВОЕ ВРЕМЯ И ШТРАФ
-        toi = g.get("timeOnIce", "00:00")
+        # 🌟 ФИКС ВРЕМЕНИ НА ЛЬДУ: API использует ключ 'toi' в этих логах!
+        toi = g.get("toi", g.get("timeOnIce", "00:00"))
         pim = g.get("pim", 0)
+
+        raw_stats = {"toi": toi, "pim": pim}
 
         if player.position.name == "G":
             saves = g.get("saves", 0)
@@ -336,14 +337,11 @@ async def get_player_logs(player_id: int, db: AsyncSession = Depends(get_db)):
             win = g.get("decision") == "W"
             pts = (saves * 0.4) - (ga * 1.0) + (shutouts * 10.0) + (win * 6.0)
             
-            # Считаем процент ОБ
             sv_pct = g.get("savePctg", 0.0)
-            try:
-                sv_pct_str = f"{float(sv_pct):.3f}"
-            except:
-                sv_pct_str = "0.000"
-                
-            stat_str = f"🧱 {saves} SV, {ga} GA ({sv_pct_str} SV%)<br>⏱ {toi} TOI | 🥊 {pim} PIM"
+            try: sv_pct_str = f"{float(sv_pct):.3f}"
+            except: sv_pct_str = "0.000"
+            
+            raw_stats.update({"sv": saves, "ga": ga, "sv_pct": sv_pct_str})
         else:
             goals = g.get("goals", 0)
             assists = g.get("assists", 0)
@@ -354,15 +352,13 @@ async def get_player_logs(player_id: int, db: AsyncSession = Depends(get_db)):
             otg = g.get("otGoals", 0)
             pts = (goals * 8.0) + (assists * 4.0) + (pm * 1.0) + (ppg * 2.0) + (shg * 4.0) + (gwg * 2.0) + (otg * 2.0)
             
-            # Форматируем плюс-минус
-            pm_str = f"+{pm}" if pm > 0 else f"{pm}"
-            stat_str = f"🏒 {goals} G, {assists} A | ⚖️ {pm_str} +/-<br>⏱ {toi} TOI | 🥊 {pim} PIM"
+            raw_stats.update({"g": goals, "a": assists, "pm": pm})
 
         logs.append({
             "date": g.get("gameDate", ""),
             "opponent": g.get("opponentAbbrev", "TBD"),
             "points": round(pts, 1),
-            "stats": stat_str
+            "raw": raw_stats # Отдаем чистые цифры на фронт!
         })
         
     return {"player_name": player.full_name, "position": player.position.name, "logs": logs}

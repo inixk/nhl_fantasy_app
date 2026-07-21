@@ -3,6 +3,7 @@ tg.expand();
 
 let allPlayers = [];
 let currentTransferSlot = { pos: null, index: null };
+let selectedActionSlot = { pos: null, index: null, player: null }; // Для меню игрока
 let balance = 10000; 
 let captainId = null; 
 let savedCaptainId = null;
@@ -48,9 +49,6 @@ function debounce(func, wait) {
 const renderFantasyStatsDebounced = debounce(renderFantasyStats, 400);
 const renderMarketDebounced = debounce(renderMarket, 400);
 
-// ==========================================
-// 1. ОНБОРДИНГ И ГЛАВНАЯ НАВИГАЦИЯ
-// ==========================================
 const welcomeModal = document.getElementById('welcome-modal');
 const appContainer = document.getElementById('app-container');
 
@@ -59,12 +57,16 @@ if (!localStorage.getItem('nhl_onboarding_done')) {
     document.getElementById('start-btn')?.addEventListener('click', () => {
         localStorage.setItem('nhl_onboarding_done', 'true');
         welcomeModal.style.display = 'none';
-        appContainer.style.display = 'block';
+        appContainer.style.display = 'flex';
+        appContainer.style.flexDirection = 'column';
+        appContainer.style.height = '100%';
         initApp();
     });
 } else {
     welcomeModal.style.display = 'none';
-    appContainer.style.display = 'block';
+    appContainer.style.display = 'flex';
+    appContainer.style.flexDirection = 'column';
+    appContainer.style.height = '100%';
     initApp();
 }
 
@@ -105,9 +107,6 @@ document.querySelectorAll('.segment-tab').forEach(tab => {
     });
 });
 
-// ==========================================
-// 2. ИНИЦИАЛИЗАЦИЯ И СБОРКА КОМАНДЫ
-// ==========================================
 async function initApp() {
     try {
         const response = await fetch('/api/players');
@@ -161,7 +160,6 @@ function createPlayerCardHTML(p, showBuyButton = false) {
     const logoUrl = `https://assets.nhle.com/logos/nhl/svg/${p.team}_light.svg`;
     const jerseyInner = `<img src="${logoUrl}" class="jersey-logo" onload="this.nextElementSibling.style.display='none'" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"><span class="jersey-team-text">${p.team}</span>`;
 
-    // Если это не рынок (showBuyButton=false), то по клику открываем логи
     const onClickAttr = !showBuyButton ? `onclick="openPlayerProfile(${p.id})"` : '';
     const cursorStyle = !showBuyButton ? 'cursor:pointer;' : '';
 
@@ -222,6 +220,8 @@ function renderMarket() {
 ['market-search', 'market-min-price', 'market-max-price'].forEach(id => { document.getElementById(id)?.addEventListener('input', renderMarketDebounced); });
 ['market-team-filter', 'market-sort'].forEach(id => { document.getElementById(id)?.addEventListener('change', renderMarket); });
 
+
+// 🌟 КАСТОМНОЕ МЕНЮ ДЕЙСТВИЙ ИГРОКА 🌟
 document.querySelectorAll('.player-slot').forEach(slot => {
     slot.addEventListener('click', function() {
         const pos = this.getAttribute('data-pos');
@@ -229,28 +229,13 @@ document.querySelectorAll('.player-slot').forEach(slot => {
 
         if (myRoster[pos][index] !== null) {
             const p = myRoster[pos][index];
-            tg.showPopup({
-                title: p.name,
-                message: `Cost: ${p.price} FC\nWhat do you want to do?`,
-                buttons: [
-                    { id: "logs", type: "default", text: "📊 Stats & Logs" },
-                    { id: "captain", type: "default", text: "⭐ Make Captain (C)" },
-                    { id: "sell", type: "destructive", text: `🗑 Sell (+${p.price} FC)` }
-                ]
-            }, (buttonId) => {
-                if (buttonId === "sell") {
-                    balance += p.price;
-                    myRoster[pos][index] = null;
-                    if (captainId === p.id) captainId = null;
-                    updateTeamUI();
-                } else if (buttonId === "captain") {
-                    captainId = p.id;
-                    updateTeamUI();
-                    tg.HapticFeedback.notificationOccurred('success');
-                } else if (buttonId === "logs") {
-                    openPlayerProfile(p.id);
-                }
-            });
+            selectedActionSlot = { pos, index, player: p };
+            
+            document.getElementById('action-player-name').innerText = p.name;
+            document.getElementById('action-player-price').innerText = `${p.price} FC`;
+            document.getElementById('action-btn-sell').innerText = `🗑 Sell (+${p.price} FC)`;
+            
+            document.getElementById('action-sheet-modal').style.display = 'flex';
             return;
         }
 
@@ -258,6 +243,42 @@ document.querySelectorAll('.player-slot').forEach(slot => {
         document.getElementById('market-pos-badge').innerText = pos;
         document.getElementById('market-modal').style.display = 'block';
         renderMarket();
+    });
+});
+
+// Обработчики кнопок меню игрока
+document.getElementById('action-btn-logs')?.addEventListener('click', () => {
+    document.getElementById('action-sheet-modal').style.display = 'none';
+    if(selectedActionSlot.player) openPlayerProfile(selectedActionSlot.player.id);
+});
+
+document.getElementById('action-btn-captain')?.addEventListener('click', () => {
+    if(selectedActionSlot.player) {
+        captainId = selectedActionSlot.player.id;
+        updateTeamUI();
+        tg.HapticFeedback.notificationOccurred('success');
+    }
+    document.getElementById('action-sheet-modal').style.display = 'none';
+});
+
+document.getElementById('action-btn-sell')?.addEventListener('click', () => {
+    if(selectedActionSlot.player) {
+        balance += selectedActionSlot.player.price;
+        myRoster[selectedActionSlot.pos][selectedActionSlot.index] = null;
+        if (captainId === selectedActionSlot.player.id) captainId = null;
+        updateTeamUI();
+    }
+    document.getElementById('action-sheet-modal').style.display = 'none';
+});
+
+document.getElementById('action-btn-cancel')?.addEventListener('click', () => {
+    document.getElementById('action-sheet-modal').style.display = 'none';
+});
+
+// Закрытие модалок по клику на фон
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', function(e) {
+        if(e.target === this) { this.style.display = 'none'; }
     });
 });
 
@@ -303,7 +324,7 @@ function updateTeamUI() {
                 domSlot.innerHTML = `
                     ${captainBadge}
                     <div class="jersey" style="background-color: ${bgColor}; color: ${textColor}; border: 2px solid ${bgColor};">${jerseyInner}</div>
-                    <div class="slot-name">${lastName}</div>
+                    <div class="slot-name" style="color: #cbd5e1;">${lastName}</div>
                     <div class="rink-price">${player.price}</div>
                 `;
             } else {
@@ -558,9 +579,10 @@ document.getElementById('confirm-join-league')?.addEventListener('click', async 
 // ==========================================
 let currentPlayerLogs = [];
 let showingAllLogs = false;
+let currentPlayerLogPos = 'F'; // Сохраняем позицию, чтобы знать, какие статы рисовать
 
-async function openPlayerProfile(playerId) {
-    document.getElementById('player-profile-modal').style.display = 'block';
+window.openPlayerProfile = async function(playerId) {
+    document.getElementById('player-profile-modal').style.display = 'flex';
     document.getElementById('player-logs-list').innerHTML = "<div class='loading-text'>Загрузка истории...</div>";
     document.getElementById('profile-name').innerText = "Загрузка...";
     
@@ -573,12 +595,13 @@ async function openPlayerProfile(playerId) {
         
         document.getElementById('profile-name').innerText = data.player_name;
         currentPlayerLogs = data.logs;
+        currentPlayerLogPos = data.position; // F, D или G
         
         renderPlayerLogs();
     } catch (e) {
         document.getElementById('player-logs-list').innerHTML = "<div class='loading-text'>Ошибка загрузки</div>";
     }
-}
+};
 
 function renderPlayerLogs() {
     const list = document.getElementById('player-logs-list');
@@ -594,16 +617,34 @@ function renderPlayerLogs() {
         let ptsClass = log.points > 0 ? 'pts-positive' : (log.points < 0 ? 'pts-negative' : 'pts-neutral');
         let ptsPrefix = log.points > 0 ? '+' : '';
         
+        // Рисуем сетку статистики в зависимости от амплуа
+        let statsGrid = '';
+        if (currentPlayerLogPos === 'G') {
+            statsGrid = `
+                <div class="stat-box"><span>${log.raw.sv}</span><label>SV</label></div>
+                <div class="stat-box"><span>${log.raw.ga}</span><label>GA</label></div>
+                <div class="stat-box"><span>${log.raw.sv_pct}</span><label>SV%</label></div>
+                <div class="stat-box"><span>${log.raw.toi}</span><label>TOI</label></div>
+            `;
+        } else {
+            const pmStr = log.raw.pm > 0 ? `+${log.raw.pm}` : log.raw.pm;
+            statsGrid = `
+                <div class="stat-box"><span>${log.raw.g}</span><label>G</label></div>
+                <div class="stat-box"><span>${log.raw.a}</span><label>A</label></div>
+                <div class="stat-box"><span style="color: ${log.raw.pm > 0 ? '#00E676' : (log.raw.pm < 0 ? '#ef4444' : 'white')}">${pmStr}</span><label>+/-</label></div>
+                <div class="stat-box"><span>${log.raw.toi}</span><label>TOI</label></div>
+            `;
+        }
+
         html += `
-        <div class="log-row">
-            <div>
-                <div class="log-date">${log.date}</div>
+        <div class="log-card">
+            <div class="log-header">
+                <div class="log-date">📅 ${log.date}</div>
                 <div class="log-opp">vs ${log.opponent}</div>
-                <div class="log-stats">${log.stats}</div>
+                <div class="log-pts ${ptsClass}">${ptsPrefix}${log.points} FC</div>
             </div>
-            <div class="player-right">
-                <span class="pts-value ${ptsClass}">${ptsPrefix}${log.points}</span>
-                <span class="pts-label">FC PTS</span>
+            <div class="log-grid">
+                ${statsGrid}
             </div>
         </div>`;
     });

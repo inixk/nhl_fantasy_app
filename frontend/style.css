@@ -17,99 +17,61 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: var(--bg-main);
-    background-image: radial-gradient(circle at 50% -20%, #1c315e, var(--bg-main));
-    color: var(--text-main); 
-    
-    /* 🌟 АДАПТИВНОСТЬ ДЛЯ ПК: Ограничиваем ширину и центрируем */
-    margin: 0 auto; 
-    max-width: 550px; 
-    position: relative;
-    
-    padding: 16px; 
-    padding-bottom: 90px; 
-    min-height: 100vh;
-    box-sizing: border-box;
+    background-color: var(--bg-main); background-image: radial-gradient(circle at 50% -20%, #1c315e, var(--bg-main));
+    color: var(--text-main); margin: 0 auto; max-width: 550px; position: relative;
+    padding: 16px; padding-bottom: 90px; min-height: 100vh; box-sizing: border-box;
 }
 
-/* 🌟 Фикс для всплывающих окон (чтобы они тоже не растягивались на ПК) */
-.market-content {
-    position: absolute;
-    bottom: 0;
-    left: 0; right: 0; margin: 0 auto; /* Центрирование */
-    max-width: 550px; /* Ограничение ширины */
-    width: 100%; 
-    height: 100vh; 
-    background: var(--bg-main); 
-    border-radius: 0; 
-    display: flex; 
-    flex-direction: column;
-    padding: 0;
-    border: none;
-    animation: slideUp 0.3s ease-out;
-    box-sizing: border-box;
+.glass-panel {
+    background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border); border-radius: 20px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 }
 
-/* 🌟 Фикс для нижнего меню на ПК */
-.bottom-nav { 
-    position: fixed; 
-    bottom: 0; 
-    left: 0; right: 0; margin: 0 auto; /* Центрирование */
-    max-width: 550px; /* Ограничение ширины */
-    width: 100%; 
-    display: flex; justify-content: space-around; 
-    background: rgba(11, 19, 43, 0.85); backdrop-filter: blur(15px); 
-    border-top: 1px solid var(--glass-border); 
-    padding: 12px 0; padding-bottom: max(12px, env(safe-area-inset-bottom)); 
-    z-index: 100; 
+/* 🌟 УНИВЕРСАЛЬНЫЕ ПОЛНОЭКРАННЫЕ ОКНА (Рынок, Логи, Лиги) - РЕШАЕТ ВСЕ ПРОБЛЕМЫ С ПК И НАЛОЖЕНИЕМ */
+.fullscreen-modal {
+    position: fixed; top: 0; bottom: 0; left: 0; right: 0;
+    margin: 0 auto; max-width: 550px; width: 100%;
+    background: var(--bg-main); z-index: 2000;
+    display: flex; flex-direction: column;
+    animation: slideUp 0.3s ease-out; overflow: hidden;
 }
-.modal-content { padding: 30px; width: 100%; text-align: center; }
-.highlight { color: var(--accent-green); }
+.fullscreen-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 15px 20px; border-bottom: 1px solid var(--glass-border);
+    background: var(--glass-bg); flex-shrink: 0;
+}
+.fullscreen-header h3 { margin: 0; font-size: 18px; }
+.fullscreen-body { flex-grow: 1; overflow-y: auto; padding: 15px; padding-bottom: 40px; }
 
-/* 🌟 ПОЛНОЭКРАННЫЕ ОКНА (Рынок, Лиги, Логи) */
-.market-content {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%; 
-    height: 100vh; 
-    background: var(--bg-main); 
-    border-radius: 0; 
-    display: flex; 
-    flex-direction: column;
-    padding: 0;
-    border: none;
-    animation: slideUp 0.3s ease-out;
-    box-sizing: border-box;
+/* 🌟 КАСТОМНОЕ МЕНЮ ИГРОКА (Action Sheet) */
+.modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(11, 19, 43, 0.85); z-index: 3000;
+    display: flex; justify-content: center; align-items: center; backdrop-filter: blur(8px);
 }
+.action-overlay { align-items: flex-end; }
+.action-sheet {
+    background: var(--bg-dark); width: 100%; max-width: 550px; margin: 0 auto;
+    border-radius: 24px 24px 0 0; padding: 20px; padding-bottom: max(20px, env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; gap: 12px;
+    border-top: 1px solid var(--glass-border); animation: slideUp 0.3s ease-out;
+}
+.action-sheet h3 { margin: 0 0 5px 0; text-align: center; }
+.action-sheet .price-tag { text-align: center; margin-bottom: 15px; display: block; font-size: 16px; }
+
 @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
-.market-header { display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid var(--glass-border); }
-.market-header h3 { margin: 0; font-size: 18px; }
+/* Остальные элементы (Гайд, кнопки, инпуты) */
+.modal-content { padding: 30px; width: 85%; text-align: center; }
+.highlight { color: var(--accent-green); }
 .icon-btn { background: none; border: none; color: var(--text-muted); font-size: 24px; cursor: pointer; padding: 0; touch-action: manipulation;}
-.players-scroll-list { overflow-y: auto; padding: 15px; flex-grow: 1; }
-
-/* Гайд */
-.guide-content { max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; padding: 20px 20px 5px 20px; }
-.guide-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 15px; margin-bottom: 15px; flex-shrink: 0; }
-.guide-header h2 { margin: 0; font-size: 18px; }
-.guide-body { overflow-y: auto; text-align: left; padding-right: 5px; }
-.guide-body h3 { color: var(--accent-blue); margin-top: 15px; margin-bottom: 5px; font-size: 15px; }
-.guide-body p, .guide-body ul { font-size: 13px; color: #cbd5e1; line-height: 1.4; margin-top: 0; }
-
-/* Инпуты */
-.filters-container { padding: 15px; }
+.filters-container { padding: 15px; flex-shrink: 0; border-bottom: 1px solid var(--glass-border); }
 .sort-group { display: flex; justify-content: space-between; gap: 10px; }
 .price-range-group { display: flex; gap: 10px; margin-bottom: 12px; }
 .half-input { width: 50%; margin-bottom: 0 !important; }
-.glass-input, .glass-select {
-    width: 100%; box-sizing: border-box; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--glass-border);
-    color: var(--text-main); padding: 14px 16px; border-radius: 12px; font-size: 15px; margin-bottom: 12px; outline: none; transition: 0.3s;
-}
+.glass-input, .glass-select { width: 100%; box-sizing: border-box; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--glass-border); color: var(--text-main); padding: 14px 16px; border-radius: 12px; font-size: 15px; margin-bottom: 12px; outline: none; transition: 0.3s; }
 .glass-select { appearance: none; background-image: url('data:image/svg+xml;utf8,<svg fill="%238c9baf" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>'); background-repeat: no-repeat; background-position: right 10px center; }
 .glass-select option { background: var(--bg-main); color: var(--text-main); }
-
-/* Кнопки */
 .glass-btn { width: 100%; padding: 16px; border-radius: 14px; border: none; font-size: 16px; font-weight: 600; color: white; cursor: pointer; touch-action: manipulation;}
 .primary-btn { background: linear-gradient(135deg, var(--accent-blue), #2563eb); box-shadow: 0 4px 15px rgba(58, 134, 255, 0.3); }
 .primary-btn:disabled { background: var(--glass-border); color: var(--text-muted); box-shadow: none; }
@@ -120,7 +82,9 @@ body {
 /* Карточки Игроков */
 .player-card { display: flex; align-items: center; justify-content: space-between; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; padding: 14px; margin-bottom: 12px; }
 .player-left { display: flex; align-items: center; gap: 12px; flex-grow: 1; }
-.jersey-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; justify-content: center; align-items: center; font-weight: 800; font-size: 14px; background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="%23ffffff20" xmlns="http://www.w3.org/2000/svg"><path d="M6 3l-4 5v2h2v10h16V10h2V8l-4-5H6z"/></svg>'); background-size: cover; border: 1px solid rgba(255,255,255,0.1);}
+.jersey-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; flex-direction: column; justify-content: center; align-items: center; font-weight: 800; font-size: 14px; background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="%23ffffff20" xmlns="http://www.w3.org/2000/svg"><path d="M6 3l-4 5v2h2v10h16V10h2V8l-4-5H6z"/></svg>'); background-size: cover; border: 1px solid rgba(255,255,255,0.1);}
+.jersey-logo { width: 32px; height: 32px; object-fit: contain; filter: drop-shadow(0px 1px 2px rgba(0,0,0,0.5)); }
+.jersey-team-text { font-size: 13px; font-weight: 800; letter-spacing: 0.5px; }
 .player-info { display: flex; flex-direction: column; gap: 4px; }
 .player-name { font-size: 16px; font-weight: 600; margin: 0; }
 .player-tags { display: flex; gap: 6px; font-size: 12px; align-items: center; }
@@ -132,25 +96,30 @@ body {
 .pts-positive { color: var(--accent-green); } .pts-negative { color: var(--ice-line-red); } .pts-neutral { color: var(--text-muted); }
 .pts-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
 
-/* 🌟 ЛОГОТИПЫ НА ДЖЕРСИ */
-.jersey-logo { width: 32px; height: 32px; object-fit: contain; filter: drop-shadow(0px 1px 2px rgba(0,0,0,0.5)); }
-.jersey-team-text { font-size: 13px; font-weight: 800; letter-spacing: 0.5px; }
-.jersey, .jersey-icon { display: flex; flex-direction: column; justify-content: center; align-items: center; }
-
-/* Логи игроков */
+/* Логи и Скоры */
 .log-row { display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 12px 15px; border-radius: 12px; margin-bottom: 8px; border: 1px solid var(--glass-border); }
 .log-date { font-size: 11px; color: var(--text-muted); font-weight: 600; }
 .log-opp { font-size: 15px; font-weight: 800; color: var(--text-main); margin: 2px 0; }
 .log-stats { font-size: 12px; color: var(--accent-blue); }
 
-/* Универсальные внутренние вкладки */
-.segmented-control { display: flex; background: rgba(0, 0, 0, 0.3); border-radius: 12px; padding: 4px; margin-bottom: 15px; border: 1px solid var(--glass-border); }
+.match-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; padding: 15px; margin-bottom: 15px; }
+.match-header { text-align: center; font-size: 13px; font-weight: bold; color: var(--text-muted); border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px; margin-bottom: 10px; }
+.match-teams { display: flex; justify-content: space-around; align-items: center; margin-bottom: 15px; }
+.match-team { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 800; width: 40%; }
+.match-team.away { justify-content: flex-end; } .match-team.home { justify-content: flex-start; }
+.match-score { font-size: 24px; font-weight: 900; color: white; padding: 0 15px; }
+.match-details { font-size: 12px; color: #cbd5e1; line-height: 1.6; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 10px; }
+.match-details-title { font-weight: bold; color: var(--accent-blue); margin-bottom: 5px; margin-top: 5px;}
+.match-details-title:first-child { margin-top: 0; }
+.period-divider { color: var(--text-hint); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-top: 10px; margin-bottom: 2px; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 2px; }
+
+/* Вкладки */
+.segmented-control { display: flex; background: rgba(0, 0, 0, 0.3); border-radius: 12px; padding: 4px; margin-bottom: 15px; border: 1px solid var(--glass-border); flex-shrink: 0;}
 .segment-tab { flex: 1; text-align: center; padding: 10px 0; font-size: 14px; font-weight: 600; color: var(--text-muted); border-radius: 8px; transition: all 0.2s ease; cursor: pointer; }
 .segment-tab.active { background: var(--glass-bg); color: var(--text-main); border: 1px solid var(--glass-border); box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-.sub-section { display: none; }
-.sub-section.active { display: block; animation: fadeIn 0.3s ease; }
+.sub-section { display: none; flex-direction: column; flex-grow: 1; overflow: hidden;}
+.sub-section.active { display: flex; animation: fadeIn 0.3s ease; }
 
-/* Анимации кнопок и карточек */
 .player-card, .match-card, .league-card, .leaderboard-item, .glass-btn { transition: transform 0.15s ease, box-shadow 0.15s ease; }
 .player-card:active, .match-card:active, .league-card:active, .leaderboard-item:active, .glass-btn:active { transform: scale(0.97); box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
 
@@ -163,20 +132,20 @@ body {
 .blue-line, .red-line { height: 4px; width: 100%; margin: 15px 0; }
 .blue-line { background: var(--ice-line-blue); opacity: 0.5;} .red-line { background: var(--ice-line-red); opacity: 0.5;}
 .player-slot { display: flex; flex-direction: column; align-items: center; width: 60px; position: relative; touch-action: manipulation;}
-.jersey { width: 46px; height: 46px; border-radius: 10px; background-color: #1e293b; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: 700; font-size: 14px; border: 2px solid rgba(255,255,255,0.8); background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="%23ffffff30" xmlns="http://www.w3.org/2000/svg"><path d="M6 3l-4 5v2h2v10h16V10h2V8l-4-5H6z"/></svg>'); background-size: cover; }
+.jersey { width: 46px; height: 46px; border-radius: 10px; background-color: #1e293b; color: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; font-weight: 700; font-size: 14px; border: 2px solid rgba(255,255,255,0.8); background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="%23ffffff30" xmlns="http://www.w3.org/2000/svg"><path d="M6 3l-4 5v2h2v10h16V10h2V8l-4-5H6z"/></svg>'); background-size: cover; }
 .jersey.empty { background: rgba(0,0,0,0.05); border: 2px dashed #94a3b8; color: #94a3b8; box-shadow: none; background-image: none; }
 .slot-name { font-size: 11px; margin-top: 6px; color: #475569; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60px;}
 .rink-price { color: #059669; font-weight: 800; font-size: 11px; margin-top: 2px; }
 .captain-badge { position: absolute; top: -5px; right: -5px; background: #FFD700; color: #000; font-weight: 900; font-size: 12px; width: 18px; height: 18px; border-radius: 50%; display: flex; justify-content: center; align-items: center; border: 1px solid #fff; z-index: 5; }
 
 /* Нижнее меню */
-.bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; display: flex; justify-content: space-around; background: rgba(11, 19, 43, 0.85); backdrop-filter: blur(15px); border-top: 1px solid var(--glass-border); padding: 12px 0; padding-bottom: max(12px, env(safe-area-inset-bottom)); z-index: 100; }
+.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; margin: 0 auto; max-width: 550px; width: 100%; display: flex; justify-content: space-around; background: rgba(11, 19, 43, 0.85); backdrop-filter: blur(15px); border-top: 1px solid var(--glass-border); padding: 12px 0; padding-bottom: max(12px, env(safe-area-inset-bottom)); z-index: 100; }
 .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); font-weight: 600; transition: 0.2s;}
 .nav-item.active { color: var(--accent-blue); transform: translateY(-2px);}
-.tab-content { display: none; } .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+.tab-content { display: none; height: 100%;} .tab-content.active { display: flex; flex-direction: column; animation: fadeIn 0.3s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-/* Стили таблиц НХЛ */
+/* Стили Лиг и Таблиц */
 .standings-table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--glass-bg); border-radius: 12px; overflow: hidden; border: 1px solid var(--glass-border); margin-bottom: 20px; }
 .standings-table th { background: rgba(0,0,0,0.3); padding: 10px 5px; color: var(--text-muted); font-weight: 600; text-align: right; }
 .standings-table th:nth-child(1), .standings-table th:nth-child(2) { text-align: left; }
@@ -184,24 +153,10 @@ body {
 .standings-table td:nth-child(1), .standings-table td:nth-child(2) { text-align: left; }
 .team-cell { display: flex; align-items: center; gap: 8px; font-weight: bold;}
 .team-logo { width: 20px; height: 20px; object-fit: contain; }
-.section-header { font-size: 16px; font-weight: bold; margin: 15px 0 10px 5px; color: var(--accent-blue); }
+.section-header { font-size: 16px; font-weight: bold; margin: 15px 0 10px 5px; color: var(--accent-blue); flex-shrink: 0;}
 .playoff-spot td { background-color: rgba(46, 204, 113, 0.08); }
 .playoff-spot td:first-child { border-left: 3px solid var(--accent-green); }
 
-/* Стили Скорборда */
-.match-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; padding: 15px; margin-bottom: 15px; }
-.match-header { text-align: center; font-size: 13px; font-weight: bold; color: var(--text-muted); border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px; margin-bottom: 10px; }
-.match-teams { display: flex; justify-content: space-around; align-items: center; margin-bottom: 15px; }
-.match-team { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 800; width: 40%; }
-.match-team.away { justify-content: flex-end; } .match-team.home { justify-content: flex-start; }
-.match-score { font-size: 24px; font-weight: 900; color: white; padding: 0 15px; }
-.match-details { font-size: 12px; color: #cbd5e1; line-height: 1.6; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 10px; }
-.match-details-title { font-weight: bold; color: var(--accent-blue); margin-bottom: 5px; margin-top: 5px;}
-.match-details-title:first-child { margin-top: 0; }
-.period-divider { color: var(--text-hint); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-top: 10px; margin-bottom: 2px; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 2px; }
-.period-divider:first-child { margin-top: 0; }
-
-/* Стили Лиг */
 .leaderboard-item { display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 12px 15px; border-radius: 12px; margin-bottom: 8px; border: 1px solid transparent; }
 .leaderboard-item.is-me { background: rgba(58, 134, 255, 0.15); border-color: rgba(58, 134, 255, 0.3); }
 .rank-badge { width: 30px; height: 30px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 800; font-size: 14px; background: #1e293b; color: var(--text-muted); margin-right: 12px; }
@@ -212,10 +167,45 @@ body {
 .lb-team-name { font-weight: 700; font-size: 15px; color: var(--text-main); }
 .lb-manager-name { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
 .lb-points { font-size: 16px; font-weight: 800; color: var(--accent-green); }
-.my-rank-sticky { background: var(--bg-main); border-top: 1px solid var(--glass-border); padding: 10px; box-shadow: 0 -4px 10px rgba(0,0,0,0.2); z-index: 10; }
+.my-rank-sticky { background: var(--bg-main); border-top: 1px solid var(--glass-border); padding: 10px; box-shadow: 0 -4px 10px rgba(0,0,0,0.2); z-index: 10; flex-shrink: 0;}
 .league-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; position: relative;}
 .league-card-title { font-size: 16px; font-weight: 700; margin-bottom: 5px; }
 .league-card-code { font-size: 12px; color: var(--text-muted); }
 .loading-text { text-align: center; color: var(--text-muted); padding: 30px; }
 .spoiler { filter: blur(5px); cursor: pointer; transition: filter 0.3s ease; background: rgba(0,230,118,0.1); padding: 2px 6px; border-radius: 4px; }
 .spoiler.revealed { filter: blur(0); }
+
+/* 🌟 ФИКС СКРОЛЛА ДЛЯ TELEGRAM WEBAPP */
+.players-scroll-list, .fullscreen-body { 
+    overflow-y: auto; 
+    -webkit-overflow-scrolling: touch; 
+    overscroll-behavior: contain; /* Запрещает Телеграму тянуть окно вниз при скролле! */
+}
+
+/* 🌟 НОВЫЕ КНОПКИ ДЛЯ МЕНЮ ИГРОКА (Темный текст на белом фоне) */
+.action-btn {
+    width: 100%; padding: 16px; border-radius: 14px; border: none;
+    font-size: 16px; font-weight: 700; cursor: pointer;
+    background: #f8fafc; color: #0f172a; 
+    transition: 0.2s; touch-action: manipulation;
+}
+.action-btn:active { transform: scale(0.97); }
+.action-sell-btn { color: #ef4444; }
+.action-cancel-btn { background: rgba(255,255,255,0.1); color: #ffffff; margin-top: 5px;}
+
+/* 🌟 КРАСИВЫЕ КАРТОЧКИ ДЛЯ ЛОГОВ (GAME LOGS) */
+.log-card {
+    background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+    border-radius: 16px; margin-bottom: 12px; padding: 15px;
+}
+.log-header {
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px; margin-bottom: 10px;
+}
+.log-date { font-size: 12px; color: var(--text-muted); font-weight: 600;}
+.log-opp { font-size: 16px; font-weight: 800; color: white; }
+.log-pts { font-size: 15px; font-weight: 800; }
+.log-grid { display: flex; justify-content: space-between; }
+.stat-box { display: flex; flex-direction: column; align-items: center; width: 25%; }
+.stat-box span { font-size: 16px; font-weight: 700; color: white; }
+.stat-box label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-top: 4px; font-weight: 600; }
