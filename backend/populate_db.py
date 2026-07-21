@@ -83,9 +83,17 @@ async def populate():
                     points += (g.get("powerPlayGoals", 0) * 2.0) + (g.get("shorthandedGoals", 0) * 4.0)
                     points += (g.get("gameWinningGoals", 0) * 2.0) + (g.get("otGoals", 0) * 2.0)
             
-            expected_season_pts = (points / gp) * 82.0 if gp > 0 else 0
-            
-            # Индексация 1.1 и округление до сотен вверх
+# 🌟 ФИКС ЭКОНОМИКИ: Штраф за малую выборку матчей
+            if gp >= 15:
+                # Сыграл много - экстраполируем честно
+                expected_season_pts = (points / gp) * 82.0
+            elif gp > 0:
+                # Сыграл мало матчей? Режем ожидаемые очки пропорционально (защита от "выскочек")
+                penalty_factor = gp / 15.0  # Например, сыграл 3 игры = получит только 20% от своей стоимости
+                expected_season_pts = (points / gp) * 82.0 * penalty_factor
+            else:
+                expected_season_pts = 0
+                
             raw_price = (expected_season_pts * 1.1) + 100
             final_price = math.ceil(raw_price / 100) * 100
             

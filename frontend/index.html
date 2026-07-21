@@ -73,11 +73,16 @@
         <div id="market-players-list" class="fullscreen-body"></div>
     </div>
 
+<!-- Модалка: Профиль Игрока (Game Logs) -->
     <div id="player-profile-modal" class="fullscreen-modal" style="display: none;">
         <div class="fullscreen-header">
             <h3 id="profile-name">Player Name</h3>
             <button id="close-profile-btn" class="icon-btn">✕</button>
         </div>
+        
+        <!-- 🌟 СЮДА БУДЕТ ВСТАВЛЯТЬСЯ ОБЩАЯ СТАТА СЕЗОНА -->
+        <div id="profile-season-stats"></div>
+        
         <div style="padding: 15px; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; flex-shrink:0;">
             <div style="font-weight: 600; color: var(--text-muted);">История матчей:</div>
             <button id="toggle-logs-btn" class="info-small-btn">Показать весь сезон</button>
@@ -250,6 +255,6 @@
         <div class="nav-item" data-target="tab-leagues">🏆 Leagues</div>
     </div>
 
-    <script src="app.js?v=40"></script>
+    <script src="app.js?v=70"></script>
 </body>
 </html>

@@ -312,53 +312,49 @@ async def get_player_logs(player_id: int, db: AsyncSession = Depends(get_db)):
         
     now = datetime.utcnow()
     season = f"{now.year}{now.year+1}" if now.month >= 9 else f"{now.year-1}{now.year}"
+    past_season = f"{int(season[:4])-1}{int(season[4:])-1}"
     
+    # 🌟 ДОБАВЛЕНО: Запрашиваем общую стату за сезон
+    stats_info = await nhl_api.get_player_info(player_id)
+    season_stats = {}
+    if stats_info and "featuredStats" in stats_info:
+        # Пытаемся взять текущий сезон, если нет - берем прошлый
+        subSeason = stats_info["featuredStats"].get("regularSeason", {}).get("subSeason", {})
+        if not subSeason: # Если текущий сезон пуст
+            # Тут нужен сложный парсинг карьеры, для MVP отдадим нули, если нет статы текущего сезона
+            pass
+        season_stats = subSeason
+
     log_data = await nhl_api._request(f"player/{player_id}/game-log/{season}/2")
     games = log_data.get("gameLog", []) if log_data else []
     
     if not games:
-        past_season = f"{int(season[:4])-1}{int(season[4:])-1}"
         log_data = await nhl_api._request(f"player/{player_id}/game-log/{past_season}/2")
         games = log_data.get("gameLog", []) if log_data else []
 
     logs = []
     for g in games:
         pts = 0.0
-        # 🌟 ФИКС ВРЕМЕНИ НА ЛЬДУ: API использует ключ 'toi' в этих логах!
         toi = g.get("toi", g.get("timeOnIce", "00:00"))
         pim = g.get("pim", 0)
-
         raw_stats = {"toi": toi, "pim": pim}
 
         if player.position.name == "G":
-            saves = g.get("saves", 0)
-            ga = g.get("goalsAgainst", 0)
-            shutouts = g.get("shutouts", 0)
+            saves, ga, shutouts = g.get("saves", 0), g.get("goalsAgainst", 0), g.get("shutouts", 0)
             win = g.get("decision") == "W"
             pts = (saves * 0.4) - (ga * 1.0) + (shutouts * 10.0) + (win * 6.0)
-            
             sv_pct = g.get("savePctg", 0.0)
             try: sv_pct_str = f"{float(sv_pct):.3f}"
             except: sv_pct_str = "0.000"
-            
             raw_stats.update({"sv": saves, "ga": ga, "sv_pct": sv_pct_str})
         else:
-            goals = g.get("goals", 0)
-            assists = g.get("assists", 0)
-            pm = g.get("plusMinus", 0)
-            ppg = g.get("powerPlayGoals", 0)
-            shg = g.get("shorthandedGoals", 0)
-            gwg = g.get("gameWinningGoals", 0)
-            otg = g.get("otGoals", 0)
+            goals, assists, pm = g.get("goals", 0), g.get("assists", 0), g.get("plusMinus", 0)
+            ppg, shg = g.get("powerPlayGoals", 0), g.get("shorthandedGoals", 0)
+            gwg, otg = g.get("gameWinningGoals", 0), g.get("otGoals", 0)
             pts = (goals * 8.0) + (assists * 4.0) + (pm * 1.0) + (ppg * 2.0) + (shg * 4.0) + (gwg * 2.0) + (otg * 2.0)
-            
             raw_stats.update({"g": goals, "a": assists, "pm": pm})
 
-        logs.append({
-            "date": g.get("gameDate", ""),
-            "opponent": g.get("opponentAbbrev", "TBD"),
-            "points": round(pts, 1),
-            "raw": raw_stats # Отдаем чистые цифры на фронт!
-        })
+        logs.append({"date": g.get("gameDate", ""), "opponent": g.get("opponentAbbrev", "TBD"), "points": round(pts, 1), "raw": raw_stats})
         
-    return {"player_name": player.full_name, "position": player.position.name, "logs": logs}
+    # Отдаем season_stats на фронтенд
+    return {"player_name": player.full_name, "position": player.position.name, "logs": logs, "season_stats": season_stats}

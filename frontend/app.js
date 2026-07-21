@@ -1,9 +1,10 @@
+// frontend/app.js
 const tg = window.Telegram.WebApp;
 tg.expand();
 
 let allPlayers = [];
 let currentTransferSlot = { pos: null, index: null };
-let selectedActionSlot = { pos: null, index: null, player: null }; // Для меню игрока
+let selectedActionSlot = { pos: null, index: null, player: null }; 
 let balance = 10000; 
 let captainId = null; 
 let savedCaptainId = null;
@@ -49,29 +50,37 @@ function debounce(func, wait) {
 const renderFantasyStatsDebounced = debounce(renderFantasyStats, 400);
 const renderMarketDebounced = debounce(renderMarket, 400);
 
+// 🌟 УМНЫЙ ЗАМОК ПРОКРУТКИ ДЛЯ МОДАЛОК
+function openModal(id, displayType = 'flex') {
+    document.getElementById(id).style.display = displayType;
+    document.body.style.overflow = 'hidden'; 
+}
+function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+    document.body.style.overflow = 'auto'; 
+}
+
+// ==========================================
+// 1. ОНБОРДИНГ И ГЛАВНАЯ НАВИГАЦИЯ
+// ==========================================
 const welcomeModal = document.getElementById('welcome-modal');
 const appContainer = document.getElementById('app-container');
 
 if (!localStorage.getItem('nhl_onboarding_done')) {
-    welcomeModal.style.display = 'flex';
+    openModal('welcome-modal');
     document.getElementById('start-btn')?.addEventListener('click', () => {
         localStorage.setItem('nhl_onboarding_done', 'true');
-        welcomeModal.style.display = 'none';
-        appContainer.style.display = 'flex';
-        appContainer.style.flexDirection = 'column';
-        appContainer.style.height = '100%';
+        closeModal('welcome-modal');
+        appContainer.style.display = 'block';
         initApp();
     });
 } else {
-    welcomeModal.style.display = 'none';
-    appContainer.style.display = 'flex';
-    appContainer.style.flexDirection = 'column';
-    appContainer.style.height = '100%';
+    appContainer.style.display = 'block';
     initApp();
 }
 
-document.getElementById('info-btn')?.addEventListener('click', () => document.getElementById('info-modal').style.display = 'flex');
-document.getElementById('close-info-btn')?.addEventListener('click', () => document.getElementById('info-modal').style.display = 'none');
+document.getElementById('info-btn')?.addEventListener('click', () => openModal('info-modal'));
+document.getElementById('close-info-btn')?.addEventListener('click', () => closeModal('info-modal'));
 
 const navItems = document.querySelectorAll('.nav-item');
 const tabContents = document.querySelectorAll('.tab-content');
@@ -107,6 +116,9 @@ document.querySelectorAll('.segment-tab').forEach(tab => {
     });
 });
 
+// ==========================================
+// 2. ИНИЦИАЛИЗАЦИЯ И СБОРКА КОМАНДЫ
+// ==========================================
 async function initApp() {
     try {
         const response = await fetch('/api/players');
@@ -220,8 +232,9 @@ function renderMarket() {
 ['market-search', 'market-min-price', 'market-max-price'].forEach(id => { document.getElementById(id)?.addEventListener('input', renderMarketDebounced); });
 ['market-team-filter', 'market-sort'].forEach(id => { document.getElementById(id)?.addEventListener('change', renderMarket); });
 
-
-// 🌟 КАСТОМНОЕ МЕНЮ ДЕЙСТВИЙ ИГРОКА 🌟
+// ==========================================
+// 3. КАСТОМНОЕ МЕНЮ ИГРОКА 
+// ==========================================
 document.querySelectorAll('.player-slot').forEach(slot => {
     slot.addEventListener('click', function() {
         const pos = this.getAttribute('data-pos');
@@ -235,20 +248,19 @@ document.querySelectorAll('.player-slot').forEach(slot => {
             document.getElementById('action-player-price').innerText = `${p.price} FC`;
             document.getElementById('action-btn-sell').innerText = `🗑 Sell (+${p.price} FC)`;
             
-            document.getElementById('action-sheet-modal').style.display = 'flex';
+            openModal('action-sheet-modal', 'flex');
             return;
         }
 
         currentTransferSlot = { pos, index };
         document.getElementById('market-pos-badge').innerText = pos;
-        document.getElementById('market-modal').style.display = 'block';
+        openModal('market-modal', 'flex');
         renderMarket();
     });
 });
 
-// Обработчики кнопок меню игрока
 document.getElementById('action-btn-logs')?.addEventListener('click', () => {
-    document.getElementById('action-sheet-modal').style.display = 'none';
+    closeModal('action-sheet-modal');
     if(selectedActionSlot.player) openPlayerProfile(selectedActionSlot.player.id);
 });
 
@@ -258,7 +270,7 @@ document.getElementById('action-btn-captain')?.addEventListener('click', () => {
         updateTeamUI();
         tg.HapticFeedback.notificationOccurred('success');
     }
-    document.getElementById('action-sheet-modal').style.display = 'none';
+    closeModal('action-sheet-modal');
 });
 
 document.getElementById('action-btn-sell')?.addEventListener('click', () => {
@@ -268,21 +280,20 @@ document.getElementById('action-btn-sell')?.addEventListener('click', () => {
         if (captainId === selectedActionSlot.player.id) captainId = null;
         updateTeamUI();
     }
-    document.getElementById('action-sheet-modal').style.display = 'none';
+    closeModal('action-sheet-modal');
 });
 
 document.getElementById('action-btn-cancel')?.addEventListener('click', () => {
-    document.getElementById('action-sheet-modal').style.display = 'none';
+    closeModal('action-sheet-modal');
 });
 
-// Закрытие модалок по клику на фон
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', function(e) {
-        if(e.target === this) { this.style.display = 'none'; }
+        if(e.target === this) { closeModal(this.id); }
     });
 });
 
-document.getElementById('close-market-btn')?.addEventListener('click', () => { document.getElementById('market-modal').style.display = 'none'; });
+document.getElementById('close-market-btn')?.addEventListener('click', () => { closeModal('market-modal'); });
 
 window.buyPlayer = function(playerId, event) {
     if(event) event.stopPropagation();
@@ -298,11 +309,25 @@ window.buyPlayer = function(playerId, event) {
 
     balance -= player.price;
     myRoster[currentTransferSlot.pos][currentTransferSlot.index] = player;
-    document.getElementById('market-modal').style.display = 'none';
+    closeModal('market-modal');
     updateTeamUI();
 };
 
+function sortMyRoster() {
+    // Автоматическая сортировка: от самых дорогих к самым дешевым
+    ['F', 'D', 'G'].forEach(pos => {
+        let players = myRoster[pos].filter(p => p !== null);
+        players.sort((a, b) => b.price - a.price); // Сортировка
+        // Заполняем слоты обратно
+        for (let i = 0; i < myRoster[pos].length; i++) {
+            myRoster[pos][i] = players[i] || null;
+        }
+    });
+}
+
 function updateTeamUI() {
+    sortMyRoster(); // 🌟 Сортируем перед отрисовкой!
+    
     document.getElementById('current-balance').innerText = balance;
     let isFull = true;
     let currentIds = [];
@@ -321,11 +346,17 @@ function updateTeamUI() {
                 const logoUrl = `https://assets.nhle.com/logos/nhl/svg/${player.team}_light.svg`;
                 const jerseyInner = `<img src="${logoUrl}" class="jersey-logo" onload="this.nextElementSibling.style.display='none'" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"><span class="jersey-team-text">${player.team}</span>`;
 
+                // 🌟 ДОБАВЛЕН ПРИРОСТ В FC
+                let ptsClass = player.points > 0 ? 'pts-positive' : (player.points < 0 ? 'pts-negative' : 'pts-neutral');
+                let ptsPrefix = player.points > 0 ? '+' : '';
+                const growthHTML = `<div class="rink-price-diff ${ptsClass}">${ptsPrefix}${Math.round(player.points)} FC</div>`;
+
                 domSlot.innerHTML = `
                     ${captainBadge}
                     <div class="jersey" style="background-color: ${bgColor}; color: ${textColor}; border: 2px solid ${bgColor};">${jerseyInner}</div>
                     <div class="slot-name" style="color: #cbd5e1;">${lastName}</div>
                     <div class="rink-price">${player.price}</div>
+                    ${growthHTML}
                 `;
             } else {
                 domSlot.innerHTML = `<div class="jersey empty">+</div><div class="slot-name">Empty</div>`;
@@ -382,7 +413,7 @@ document.getElementById('save-team-btn')?.addEventListener('click', async () => 
 });
 
 // ==========================================
-// 5. NHL STATS (Таблицы, Лидеры, Матчи)
+// 4. NHL STATS (Таблицы, Лидеры, Матчи)
 // ==========================================
 let currentStandings = [];
 async function fetchStandings() {
@@ -474,7 +505,7 @@ async function fetchScores() {
 }
 
 // ==========================================
-// 6. LEAGUES (Лиги)
+// 5. LEAGUES (Лиги)
 // ==========================================
 async function fetchGeneralLeaderboard() {
     try {
@@ -515,7 +546,7 @@ async function openPrivateLeague(leagueId, name, code) {
         navigator.clipboard.writeText(this.innerText).then(() => { tg.showAlert("✅ Invite Code скопирован в буфер обмена!"); });
     });
 
-    document.getElementById('private-league-modal').style.display = 'block';
+    openModal('private-league-modal', 'flex');
     document.getElementById('private-leaderboard-list').innerHTML = "<div class='loading-text'>Загрузка...</div>";
     try {
         const res = await fetch(`/api/leagues/${leagueId}/leaderboard?user_id=${userId}`);
@@ -523,7 +554,7 @@ async function openPrivateLeague(leagueId, name, code) {
         renderLeaderboard('private-leaderboard-list', data.leaderboard);
     } catch (e) { console.error(e); }
 }
-document.getElementById('close-private-league-btn')?.addEventListener('click', () => { document.getElementById('private-league-modal').style.display = 'none'; });
+document.getElementById('close-private-league-btn')?.addEventListener('click', () => { closeModal('private-league-modal'); });
 
 function createLeaderboardItemHTML(user, hideBottomMargin = false) {
     let rankClass = user.rank === 1 ? 'rank-1' : (user.rank === 2 ? 'rank-2' : (user.rank === 3 ? 'rank-3' : ''));
@@ -538,8 +569,12 @@ function renderLeaderboard(containerId, leaderboardData) {
     list.innerHTML = html;
 }
 
-document.getElementById('btn-show-create-league')?.addEventListener('click', () => { document.getElementById('create-league-name').value = ''; document.getElementById('create-team-name').value = ''; document.getElementById('create-league-modal').style.display = 'flex'; });
-document.getElementById('cancel-create-league')?.addEventListener('click', () => { document.getElementById('create-league-modal').style.display = 'none'; });
+document.getElementById('btn-show-create-league')?.addEventListener('click', () => { 
+    document.getElementById('create-league-name').value = ''; 
+    document.getElementById('create-team-name').value = ''; 
+    openModal('create-league-modal', 'flex'); 
+});
+document.getElementById('cancel-create-league')?.addEventListener('click', () => { closeModal('create-league-modal'); });
 
 document.getElementById('confirm-create-league')?.addEventListener('click', async () => {
     const name = document.getElementById('create-league-name').value.trim();
@@ -551,13 +586,17 @@ document.getElementById('confirm-create-league')?.addEventListener('click', asyn
     try {
         const res = await fetch('/api/leagues/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId, user_name: userName, name: name, team_name: teamName }) });
         const data = await res.json();
-        if (res.ok) { tg.showAlert(`✅ Лига создана!\nInvite Code: ${data.invite_code}`); document.getElementById('create-league-modal').style.display = 'none'; fetchMyLeagues(); } 
+        if (res.ok) { tg.showAlert(`✅ Лига создана!\nInvite Code: ${data.invite_code}`); closeModal('create-league-modal'); fetchMyLeagues(); } 
         else { tg.showAlert("❌ Ошибка: " + (data.detail || "Не удалось создать")); }
     } catch (e) { tg.showAlert("❌ Ошибка сети"); } finally { btn.disabled = false; btn.innerText = "Создать"; }
 });
 
-document.getElementById('btn-show-join-league')?.addEventListener('click', () => { document.getElementById('join-league-code').value = ''; document.getElementById('join-team-name').value = ''; document.getElementById('join-league-modal').style.display = 'flex'; });
-document.getElementById('cancel-join-league')?.addEventListener('click', () => { document.getElementById('join-league-modal').style.display = 'none'; });
+document.getElementById('btn-show-join-league')?.addEventListener('click', () => { 
+    document.getElementById('join-league-code').value = ''; 
+    document.getElementById('join-team-name').value = ''; 
+    openModal('join-league-modal', 'flex'); 
+});
+document.getElementById('cancel-join-league')?.addEventListener('click', () => { closeModal('join-league-modal'); });
 
 document.getElementById('confirm-join-league')?.addEventListener('click', async () => {
     const code = document.getElementById('join-league-code').value.trim().toUpperCase();
@@ -569,22 +608,23 @@ document.getElementById('confirm-join-league')?.addEventListener('click', async 
     try {
         const res = await fetch('/api/leagues/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId, user_name: userName, invite_code: code, team_name: teamName }) });
         const data = await res.json();
-        if (res.ok) { tg.showAlert(`🎉 Вы успешно вступили в лигу:\n${data.league_name}`); document.getElementById('join-league-modal').style.display = 'none'; fetchMyLeagues(); } 
+        if (res.ok) { tg.showAlert(`🎉 Вы успешно вступили в лигу:\n${data.league_name}`); closeModal('join-league-modal'); fetchMyLeagues(); } 
         else { tg.showAlert("❌ Ошибка: " + (data.detail || "Не удалось вступить")); }
     } catch (e) { tg.showAlert("❌ Ошибка сети"); } finally { btn.disabled = false; btn.innerText = "Вступить"; }
 });
 
 // ==========================================
-// 7. ЛОГИ ИГРОКА (ПРОФИЛЬ)
+// 6. ЛОГИ ИГРОКА (ПРОФИЛЬ)
 // ==========================================
 let currentPlayerLogs = [];
 let showingAllLogs = false;
-let currentPlayerLogPos = 'F'; // Сохраняем позицию, чтобы знать, какие статы рисовать
+let currentPlayerLogPos = 'F';
 
 window.openPlayerProfile = async function(playerId) {
-    document.getElementById('player-profile-modal').style.display = 'flex';
+    openModal('player-profile-modal', 'flex');
     document.getElementById('player-logs-list').innerHTML = "<div class='loading-text'>Загрузка истории...</div>";
     document.getElementById('profile-name').innerText = "Загрузка...";
+    document.getElementById('profile-season-stats').innerHTML = ""; // Очищаем старую стату
     
     showingAllLogs = false;
     document.getElementById('toggle-logs-btn').innerText = "Показать весь сезон";
@@ -595,7 +635,30 @@ window.openPlayerProfile = async function(playerId) {
         
         document.getElementById('profile-name').innerText = data.player_name;
         currentPlayerLogs = data.logs;
-        currentPlayerLogPos = data.position; // F, D или G
+        currentPlayerLogPos = data.position;
+        
+        // 🌟 РИСУЕМ ОБЩУЮ СТАТИСТИКУ
+        const stats = data.season_stats;
+        let statsHtml = '';
+        if (stats) {
+            if (data.position === 'G') {
+                statsHtml = `
+                    <div class="profile-stat-item"><span class="profile-stat-val">${stats.gamesPlayed || 0}</span><span class="profile-stat-lbl">GP</span></div>
+                    <div class="profile-stat-item"><span class="profile-stat-val">${stats.savePctg ? stats.savePctg.toFixed(3) : '.000'}</span><span class="profile-stat-lbl">SV%</span></div>
+                    <div class="profile-stat-item"><span class="profile-stat-val">${stats.goalsAgainstAvg ? stats.goalsAgainstAvg.toFixed(2) : '0.00'}</span><span class="profile-stat-lbl">GAA</span></div>
+                    <div class="profile-stat-item"><span class="profile-stat-val">${stats.shutouts || 0}</span><span class="profile-stat-lbl">SO</span></div>
+                `;
+            } else {
+                const ppg = stats.gamesPlayed > 0 ? (stats.points / stats.gamesPlayed).toFixed(2) : '0.00';
+                statsHtml = `
+                    <div class="profile-stat-item"><span class="profile-stat-val">${stats.gamesPlayed || 0}</span><span class="profile-stat-lbl">GP</span></div>
+                    <div class="profile-stat-item"><span class="profile-stat-val">${stats.goals || 0}</span><span class="profile-stat-lbl">G</span></div>
+                    <div class="profile-stat-item"><span class="profile-stat-val">${stats.assists || 0}</span><span class="profile-stat-lbl">A</span></div>
+                    <div class="profile-stat-item"><span class="profile-stat-val">${ppg}</span><span class="profile-stat-lbl">PTS/G</span></div>
+                `;
+            }
+            document.getElementById('profile-season-stats').innerHTML = `<div class="profile-season-box">${statsHtml}</div>`;
+        }
         
         renderPlayerLogs();
     } catch (e) {
@@ -605,10 +668,7 @@ window.openPlayerProfile = async function(playerId) {
 
 function renderPlayerLogs() {
     const list = document.getElementById('player-logs-list');
-    if (currentPlayerLogs.length === 0) {
-        list.innerHTML = "<div class='loading-text'>Нет сыгранных матчей</div>";
-        return;
-    }
+    if (currentPlayerLogs.length === 0) { list.innerHTML = "<div class='loading-text'>Нет сыгранных матчей</div>"; return; }
 
     const logsToShow = showingAllLogs ? currentPlayerLogs : currentPlayerLogs.slice(0, 5);
     
@@ -617,23 +677,20 @@ function renderPlayerLogs() {
         let ptsClass = log.points > 0 ? 'pts-positive' : (log.points < 0 ? 'pts-negative' : 'pts-neutral');
         let ptsPrefix = log.points > 0 ? '+' : '';
         
-        // Рисуем сетку статистики в зависимости от амплуа
         let statsGrid = '';
         if (currentPlayerLogPos === 'G') {
             statsGrid = `
                 <div class="stat-box"><span>${log.raw.sv}</span><label>SV</label></div>
                 <div class="stat-box"><span>${log.raw.ga}</span><label>GA</label></div>
                 <div class="stat-box"><span>${log.raw.sv_pct}</span><label>SV%</label></div>
-                <div class="stat-box"><span>${log.raw.toi}</span><label>TOI</label></div>
-            `;
+                <div class="stat-box"><span>${log.raw.toi}</span><label>TOI</label></div>`;
         } else {
             const pmStr = log.raw.pm > 0 ? `+${log.raw.pm}` : log.raw.pm;
             statsGrid = `
                 <div class="stat-box"><span>${log.raw.g}</span><label>G</label></div>
                 <div class="stat-box"><span>${log.raw.a}</span><label>A</label></div>
                 <div class="stat-box"><span style="color: ${log.raw.pm > 0 ? '#00E676' : (log.raw.pm < 0 ? '#ef4444' : 'white')}">${pmStr}</span><label>+/-</label></div>
-                <div class="stat-box"><span>${log.raw.toi}</span><label>TOI</label></div>
-            `;
+                <div class="stat-box"><span>${log.raw.toi}</span><label>TOI</label></div>`;
         }
 
         html += `
@@ -643,18 +700,13 @@ function renderPlayerLogs() {
                 <div class="log-opp">vs ${log.opponent}</div>
                 <div class="log-pts ${ptsClass}">${ptsPrefix}${log.points} FC</div>
             </div>
-            <div class="log-grid">
-                ${statsGrid}
-            </div>
+            <div class="log-grid">${statsGrid}</div>
         </div>`;
     });
-    
     list.innerHTML = html;
 }
 
-document.getElementById('close-profile-btn')?.addEventListener('click', () => {
-    document.getElementById('player-profile-modal').style.display = 'none';
-});
+document.getElementById('close-profile-btn')?.addEventListener('click', () => { closeModal('player-profile-modal'); });
 
 document.getElementById('toggle-logs-btn')?.addEventListener('click', () => {
     showingAllLogs = !showingAllLogs;
