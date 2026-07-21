@@ -301,3 +301,68 @@ async def get_league_leaderboard(league_id: int, user_id: int, db: AsyncSession 
     res_members = await db.execute(select(LeagueMember, User).join(User, LeagueMember.user_id == User.id).where(LeagueMember.league_id == league_id).order_by(desc(LeagueMember.total_points)))
     leaderboard = [{"rank": rank, "name": member.team_name, "manager": user.display_name, "points": member.total_points, "is_me": member.user_id == user_id} for rank, (member, user) in enumerate(res_members, start=1)]
     return {"leaderboard": leaderboard}
+
+# ==========================================
+# 📊 ЛОГИ ИГРОКОВ (GAME LOGS)
+# ==========================================
+@router.get("/player/{player_id}/logs")
+async def get_player_logs(player_id: int, db: AsyncSession = Depends(get_db)):
+    player = await db.get(NHLPlayer, player_id)
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+        
+    now = datetime.utcnow()
+    season = f"{now.year}{now.year+1}" if now.month >= 9 else f"{now.year-1}{now.year}"
+    
+    log_data = await nhl_api._request(f"player/{player_id}/game-log/{season}/2")
+    games = log_data.get("gameLog", []) if log_data else []
+    
+    if not games:
+        past_season = f"{int(season[:4])-1}{int(season[4:])-1}"
+        log_data = await nhl_api._request(f"player/{player_id}/game-log/{past_season}/2")
+        games = log_data.get("gameLog", []) if log_data else []
+
+    logs = []
+    for g in games:
+        pts = 0.0
+        # 🌟 ДОСТАЕМ ИГРОВОЕ ВРЕМЯ И ШТРАФ
+        toi = g.get("timeOnIce", "00:00")
+        pim = g.get("pim", 0)
+
+        if player.position.name == "G":
+            saves = g.get("saves", 0)
+            ga = g.get("goalsAgainst", 0)
+            shutouts = g.get("shutouts", 0)
+            win = g.get("decision") == "W"
+            pts = (saves * 0.4) - (ga * 1.0) + (shutouts * 10.0) + (win * 6.0)
+            
+            # Считаем процент ОБ
+            sv_pct = g.get("savePctg", 0.0)
+            try:
+                sv_pct_str = f"{float(sv_pct):.3f}"
+            except:
+                sv_pct_str = "0.000"
+                
+            stat_str = f"🧱 {saves} SV, {ga} GA ({sv_pct_str} SV%)<br>⏱ {toi} TOI | 🥊 {pim} PIM"
+        else:
+            goals = g.get("goals", 0)
+            assists = g.get("assists", 0)
+            pm = g.get("plusMinus", 0)
+            ppg = g.get("powerPlayGoals", 0)
+            shg = g.get("shorthandedGoals", 0)
+            gwg = g.get("gameWinningGoals", 0)
+            otg = g.get("otGoals", 0)
+            pts = (goals * 8.0) + (assists * 4.0) + (pm * 1.0) + (ppg * 2.0) + (shg * 4.0) + (gwg * 2.0) + (otg * 2.0)
+            
+            # Форматируем плюс-минус
+            pm_str = f"+{pm}" if pm > 0 else f"{pm}"
+            stat_str = f"🏒 {goals} G, {assists} A | ⚖️ {pm_str} +/-<br>⏱ {toi} TOI | 🥊 {pim} PIM"
+
+        logs.append({
+            "date": g.get("gameDate", ""),
+            "opponent": g.get("opponentAbbrev", "TBD"),
+            "points": round(pts, 1),
+            "stats": stat_str
+        })
+        
+    return {"player_name": player.full_name, "position": player.position.name, "logs": logs}
