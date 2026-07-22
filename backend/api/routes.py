@@ -33,6 +33,7 @@ class CreateLeagueRequest(BaseModel):
     user_name: str
     name: str
     team_name: str
+    league_type: str = "bull_market" # 🌟 ТИП ЛИГИ
 
 class JoinLeagueRequest(BaseModel):
     user_id: int
@@ -249,7 +250,14 @@ async def get_my_leagues(user_id: int, db: AsyncSession = Depends(get_db)):
         top_res = await db.execute(select(LeagueMember).where(LeagueMember.league_id == l.id).order_by(desc(LeagueMember.total_points)).limit(1))
         top_member = top_res.scalar_one_or_none()
         top_text = f"Top: {top_member.team_name} ({round(top_member.total_points)} FC)" if top_member else "No members"
-        result.append({"id": l.id, "name": l.name, "invite_code": l.invite_code, "top_manager": top_text})
+        
+        # 🌟 Отдаем тип лиги и статус драфта
+        result.append({
+            "id": l.id, "name": l.name, "invite_code": l.invite_code, 
+            "top_manager": top_text,
+            "league_type": l.league_type.value,
+            "draft_status": l.draft_status.value
+        })
     return result
 
 @router.post("/leagues/create")
@@ -258,10 +266,16 @@ async def create_league(req: CreateLeagueRequest, db: AsyncSession = Depends(get
     invite_code = generate_invite_code()
     while (await db.execute(select(League).where(League.invite_code == invite_code))).scalar_one_or_none():
         invite_code = generate_invite_code()
-    new_league = League(name=req.name, invite_code=invite_code, is_global=False)
+        
+    from backend.database.models import LeagueType
+    l_type = LeagueType.SNAKE_DRAFT if req.league_type == "snake_draft" else LeagueType.BULL_MARKET
+        
+    new_league = League(name=req.name, invite_code=invite_code, is_global=False, league_type=l_type)
     db.add(new_league)
     await db.flush()
-    db.add(LeagueMember(league_id=new_league.id, user_id=req.user_id, team_name=req.team_name))
+    
+    # 🌟 СОЗДАТЕЛЬ АВТОМАТИЧЕСКИ СТАНОВИТСЯ КОМИССИОНЕРОМ
+    db.add(LeagueMember(league_id=new_league.id, user_id=req.user_id, team_name=req.team_name, is_commissioner=True))
     await db.commit()
     return {"status": "success", "league_id": new_league.id, "invite_code": invite_code}
 
