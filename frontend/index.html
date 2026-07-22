@@ -120,7 +120,53 @@
         </div>
         <div id="other-team-rink-container" class="fullscreen-body" style="padding: 15px 5px; background: var(--bg-main);"></div>
     </div>
+<!-- 🌟 СЮДА: ЛОББИ ОЖИДАНИЯ ДРАФТА -->
+    <div id="draft-lobby-modal" class="fullscreen-modal" style="display: none;">
+        <div class="fullscreen-header">
+            <h3 id="lobby-league-title">Лобби Драфта</h3>
+            <button id="close-lobby-btn" class="icon-btn">✕</button>
+        </div>
+        <div style="padding: 10px 20px; text-align: center; background: rgba(0,0,0,0.2); border-bottom: 1px solid var(--glass-border); flex-shrink:0;">
+            Invite Code: <b id="lobby-league-code" class="spoiler"></b>
+        </div>
+        <div class="fullscreen-body">
+            <div style="text-align: center; margin-bottom: 20px; margin-top: 10px;">
+                <h2 style="margin: 0; font-size: 32px; color: var(--accent-blue);" id="lobby-members-count">1/15</h2>
+                <span style="font-size: 13px; color: var(--text-muted);">Ожидание игроков...</span>
+            </div>
+            <div id="lobby-members-list"></div>
+            
+            <button id="start-draft-btn" class="glass-btn" style="margin-top: 25px; display: none; background: linear-gradient(135deg, #00E676, #00C853);">🚀 Начать Драфт</button>
+            <div id="lobby-wait-msg" style="text-align: center; color: var(--text-muted); font-size: 13px; margin-top: 15px;">Только создатель лиги может запустить драфт.</div>
+        </div>
+    </div>
 
+    <!-- 🌟 СЮДА: КОМНАТА ДРАФТА (DRAFT ROOM) -->
+    <div id="draft-room-modal" class="fullscreen-modal" style="display: none;">
+        <div class="fullscreen-header">
+            <h3 id="draft-room-title">Draft Room</h3>
+            <button id="close-draft-room-btn" class="icon-btn">✕</button>
+        </div>
+        
+        <!-- Баннер: Чья сейчас очередь -->
+        <div id="draft-status-banner" style="background: var(--accent-blue); padding: 12px; text-align: center; font-weight: bold; color: white; flex-shrink:0; font-size: 14px;">
+            Загрузка драфта...
+        </div>
+
+        <div class="filters-container">
+            <input type="text" id="draft-search" placeholder="Player..." class="glass-input">
+            <div class="sort-group">
+                <select id="draft-pos-filter" class="glass-select" style="width: 48%">
+                    <option value="ALL">All Pos</option><option value="F">F</option><option value="D">D</option><option value="G">G</option>
+                </select>
+                <select id="draft-sort" class="glass-select" style="width: 48%">
+                    <option value="points_desc">📈 Топ по Очкам</option><option value="price_desc">💰 Топ по Рангу</option>
+                </select>
+            </div>
+        </div>
+        
+        <div id="draft-players-list" class="fullscreen-body"></div>
+    </div>
     <!-- Создать лигу (ОБНОВЛЕНО: добавлен селектор типа лиги) -->
     <div id="create-league-modal" class="modal-overlay" style="display: none;">
         <div class="glass-panel modal-content">

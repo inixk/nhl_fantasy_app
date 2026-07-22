@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from datetime import datetime
 
 from backend.database.engine import async_session
-from backend.database.models import NHLPlayer, LeagueMember, RosterPlayer, League, User
+from backend.database.models import NHLPlayer, LeagueMember, RosterPlayer, League, User, DraftPick, DraftStatus, LeagueType
 from backend.services.nhl_api import nhl_api
 
 router = APIRouter()
@@ -33,13 +33,17 @@ class CreateLeagueRequest(BaseModel):
     user_name: str
     name: str
     team_name: str
-    league_type: str = "bull_market" # 🌟 ТИП ЛИГИ
+    league_type: str = "bull_market"
 
 class JoinLeagueRequest(BaseModel):
     user_id: int
     user_name: str
     invite_code: str
     team_name: str
+
+class DraftPickRequest(BaseModel):
+    user_id: int
+    player_id: int
 
 async def get_or_create_user(db: AsyncSession, user_id: int, user_name: str):
     user = await db.get(User, user_id)
@@ -72,10 +76,7 @@ async def get_my_team(user_id: int, db: AsyncSession = Depends(get_db)):
 
     res_roster = await db.execute(select(RosterPlayer).options(selectinload(RosterPlayer.player)).where(RosterPlayer.member_id == member.id))
     return {
-        "balance": member.budget,
-        "captain_id": member.captain_id,
-        "transfers_used": member.transfers_used,
-        "captain_changes": member.captain_changes_used,
+        "balance": member.budget, "captain_id": member.captain_id, "transfers_used": member.transfers_used, "captain_changes": member.captain_changes_used,
         "roster": [{"id": r.player_id, "pos": r.player.position.name} for r in res_roster.scalars().all()]
     }
 
@@ -109,8 +110,7 @@ async def save_team(req: SaveTeamRequest, db: AsyncSession = Depends(get_db)):
                 raise HTTPException(status_code=400, detail=f"Превышен лимит замен! Доступно: {6 - member.transfers_used}")
             member.transfers_used += new_players_added
             if req.captain_id and req.captain_id != member.captain_id:
-                if member.captain_changes_used >= 1:
-                    raise HTTPException(status_code=400, detail="Капитана можно менять 1 раз в неделю.")
+                if member.captain_changes_used >= 1: raise HTTPException(status_code=400, detail="Капитана можно менять 1 раз в неделю.")
                 member.captain_changes_used += 1
                 
         await db.execute(delete(RosterPlayer).where(RosterPlayer.member_id == member.id))
@@ -136,8 +136,7 @@ async def get_nhl_standings():
 
 def get_player_name(obj_data: dict) -> str:
     if not obj_data: return "Unknown"
-    if "name" in obj_data and isinstance(obj_data["name"], dict):
-        return obj_data["name"].get("default", "Unknown")
+    if "name" in obj_data and isinstance(obj_data["name"], dict): return obj_data["name"].get("default", "Unknown")
     first = obj_data.get("firstName", {}).get("default", "")
     last = obj_data.get("lastName", {}).get("default", "")
     if first and last: return f"{first[0]}. {last}"
@@ -235,10 +234,8 @@ async def get_general_leaderboard(user_id: int, db: AsyncSession = Depends(get_d
     leaderboard, user_rank = [], None
     for rank, (member, user) in enumerate(res_members, start=1):
         team_name = member.team_name if member.team_name != "My Team" else f"Team {user.display_name}"
-        if member.user_id == user_id: 
-            user_rank = {"rank": rank, "name": team_name, "manager": user.display_name, "points": member.total_points, "user_id": member.user_id}
-        if rank <= 100: 
-            leaderboard.append({"rank": rank, "name": team_name, "manager": user.display_name, "points": member.total_points, "is_me": member.user_id == user_id, "user_id": member.user_id})
+        if member.user_id == user_id: user_rank = {"rank": rank, "name": team_name, "manager": user.display_name, "points": member.total_points, "user_id": member.user_id}
+        if rank <= 100: leaderboard.append({"rank": rank, "name": team_name, "manager": user.display_name, "points": member.total_points, "is_me": member.user_id == user_id, "user_id": member.user_id})
     return {"leaderboard": leaderboard, "user_rank": user_rank}
 
 @router.get("/leagues/my")
@@ -250,13 +247,9 @@ async def get_my_leagues(user_id: int, db: AsyncSession = Depends(get_db)):
         top_res = await db.execute(select(LeagueMember).where(LeagueMember.league_id == l.id).order_by(desc(LeagueMember.total_points)).limit(1))
         top_member = top_res.scalar_one_or_none()
         top_text = f"Top: {top_member.team_name} ({round(top_member.total_points)} FC)" if top_member else "No members"
-        
-        # 🌟 Отдаем тип лиги и статус драфта
         result.append({
             "id": l.id, "name": l.name, "invite_code": l.invite_code, 
-            "top_manager": top_text,
-            "league_type": l.league_type.value,
-            "draft_status": l.draft_status.value
+            "top_manager": top_text, "league_type": l.league_type.value, "draft_status": l.draft_status.value
         })
     return result
 
@@ -267,14 +260,10 @@ async def create_league(req: CreateLeagueRequest, db: AsyncSession = Depends(get
     while (await db.execute(select(League).where(League.invite_code == invite_code))).scalar_one_or_none():
         invite_code = generate_invite_code()
         
-    from backend.database.models import LeagueType
     l_type = LeagueType.SNAKE_DRAFT if req.league_type == "snake_draft" else LeagueType.BULL_MARKET
-        
     new_league = League(name=req.name, invite_code=invite_code, is_global=False, league_type=l_type)
     db.add(new_league)
     await db.flush()
-    
-    # 🌟 СОЗДАТЕЛЬ АВТОМАТИЧЕСКИ СТАНОВИТСЯ КОМИССИОНЕРОМ
     db.add(LeagueMember(league_id=new_league.id, user_id=req.user_id, team_name=req.team_name, is_commissioner=True))
     await db.commit()
     return {"status": "success", "league_id": new_league.id, "invite_code": invite_code}
@@ -285,8 +274,18 @@ async def join_league(req: JoinLeagueRequest, db: AsyncSession = Depends(get_db)
     res_league = await db.execute(select(League).where(League.invite_code == req.invite_code.upper()))
     league = res_league.scalar_one_or_none()
     if not league: raise HTTPException(status_code=404, detail="Лига не найдена.")
+    
+    # Лимит участников для Snake Draft
+    if league.league_type == LeagueType.SNAKE_DRAFT:
+        res_count = await db.execute(select(LeagueMember).where(LeagueMember.league_id == league.id))
+        if len(res_count.scalars().all()) >= 15:
+            raise HTTPException(status_code=400, detail="Лига заполнена (Макс 15 человек).")
+        if league.draft_status != DraftStatus.PRE_DRAFT:
+            raise HTTPException(status_code=400, detail="Драфт в этой лиге уже начался или завершен!")
+
     res_member = await db.execute(select(LeagueMember).where(LeagueMember.league_id == league.id, LeagueMember.user_id == req.user_id))
     if res_member.scalar_one_or_none(): raise HTTPException(status_code=400, detail="Вы уже в этой лиге!")
+    
     db.add(LeagueMember(league_id=league.id, user_id=req.user_id, team_name=req.team_name))
     await db.commit()
     return {"status": "success", "league_name": league.name}
@@ -297,45 +296,10 @@ async def get_league_leaderboard(league_id: int, user_id: int, db: AsyncSession 
     leaderboard = [{"rank": rank, "name": member.team_name, "manager": user.display_name, "points": member.total_points, "is_me": member.user_id == user_id, "user_id": member.user_id} for rank, (member, user) in enumerate(res_members, start=1)]
     return {"leaderboard": leaderboard}
 
-@router.get("/leagues/{league_id}/lobby")
-async def get_league_lobby(league_id: int, user_id: int, db: AsyncSession = Depends(get_db)):
-    """Отдает данные для Комнаты ожидания (Lobby) перед началом Snake Draft"""
-    res_league = await db.execute(select(League).where(League.id == league_id))
-    league = res_league.scalar_one_or_none()
-    if not league: 
-        raise HTTPException(status_code=404, detail="League not found")
-
-    res_members = await db.execute(
-        select(LeagueMember, User).join(User, LeagueMember.user_id == User.id)
-        .where(LeagueMember.league_id == league_id)
-    )
-    
-    members = []
-    is_commish = False
-    
-    for member, user in res_members:
-        members.append({
-            "name": member.team_name,
-            "manager": user.display_name,
-            "is_me": member.user_id == user_id
-        })
-        if member.user_id == user_id and member.is_commissioner:
-            is_commish = True
-
-    return {
-        "name": league.name,
-        "invite_code": league.invite_code,
-        "draft_status": league.draft_status.value,
-        "members": members,
-        "is_commissioner": is_commish,
-        "max_members": 15 # Лимит для Snake Draft
-    }
-
 @router.get("/player/{player_id}/logs")
 async def get_player_logs(player_id: int, db: AsyncSession = Depends(get_db)):
     player = await db.get(NHLPlayer, player_id)
     if not player: raise HTTPException(status_code=404, detail="Player not found")
-        
     now = datetime.utcnow()
     season = f"{now.year}{now.year+1}" if now.month >= 9 else f"{now.year-1}{now.year}"
     past_season = f"{int(season[:4])-1}{int(season[4:])-1}"
@@ -348,7 +312,6 @@ async def get_player_logs(player_id: int, db: AsyncSession = Depends(get_db)):
 
     log_data = await nhl_api._request(f"player/{player_id}/game-log/{season}/2")
     games = log_data.get("gameLog", []) if log_data else []
-    
     if not games:
         log_data = await nhl_api._request(f"player/{player_id}/game-log/{past_season}/2")
         games = log_data.get("gameLog", []) if log_data else []
@@ -376,5 +339,112 @@ async def get_player_logs(player_id: int, db: AsyncSession = Depends(get_db)):
             raw_stats.update({"g": goals, "a": assists, "pm": pm})
 
         logs.append({"date": g.get("gameDate", ""), "opponent": g.get("opponentAbbrev", "TBD"), "points": round(pts, 1), "raw": raw_stats})
-        
     return {"player_name": player.full_name, "position": player.position.name, "logs": logs, "season_stats": season_stats}
+
+# ==========================================
+# 🐍 ЭНДПОИНТЫ ДВИЖКА DRAFT SNAKE (Спринт 6.2)
+# ==========================================
+
+@router.get("/leagues/{league_id}/lobby")
+async def get_league_lobby(league_id: int, user_id: int, db: AsyncSession = Depends(get_db)):
+    """Отдает данные для Комнаты ожидания (Lobby) перед началом Snake Draft"""
+    league = await db.get(League, league_id)
+    if not league: raise HTTPException(status_code=404, detail="League not found")
+
+    res_members = await db.execute(
+        select(LeagueMember, User).join(User, LeagueMember.user_id == User.id).where(LeagueMember.league_id == league_id)
+    )
+    
+    members = []
+    is_commish = False
+    
+    for member, user in res_members:
+        members.append({"name": member.team_name, "manager": user.display_name, "is_me": member.user_id == user_id})
+        if member.user_id == user_id and member.is_commissioner:
+            is_commish = True
+
+    return {
+        "name": league.name,
+        "invite_code": league.invite_code,
+        "draft_status": league.draft_status.value,
+        "members": members,
+        "is_commissioner": is_commish,
+        "max_members": 15
+    }
+
+@router.post("/leagues/{league_id}/start_draft")
+async def start_draft(league_id: int, user_id: int, db: AsyncSession = Depends(get_db)):
+    """Генерация змейки (17 раундов)"""
+    league = await db.get(League, league_id)
+    if not league or league.league_type != LeagueType.SNAKE_DRAFT: raise HTTPException(400, "Not a snake draft league")
+    if league.draft_status != DraftStatus.PRE_DRAFT: raise HTTPException(400, "Draft already started")
+
+    # Проверка комиссионера
+    res_member = await db.execute(select(LeagueMember).where(LeagueMember.league_id == league_id, LeagueMember.user_id == user_id))
+    member = res_member.scalar_one_or_none()
+    if not member or not member.is_commissioner: raise HTTPException(403, "Только создатель может запустить драфт")
+
+    res_members = await db.execute(select(LeagueMember).where(LeagueMember.league_id == league_id))
+    all_members = res_members.scalars().all()
+    if len(all_members) < 2: raise HTTPException(400, "Нужно минимум 2 участника для старта")
+
+    # 1. Перемешиваем участников
+    member_uids = [m.user_id for m in all_members]
+    random.shuffle(member_uids)
+    
+    # 2. Генерируем змейку на 17 раундов
+    overall = 1
+    for round_num in range(1, 18):
+        # Четные раунды идут в обратном порядке (Snake logic)
+        round_order = member_uids if round_num % 2 != 0 else list(reversed(member_uids))
+        for pick_num, uid in enumerate(round_order, 1):
+            dp = DraftPick(
+                league_id=league.id, user_id=uid,
+                round_number=round_num, pick_number=pick_num, overall_pick=overall
+            )
+            db.add(dp)
+            overall += 1
+
+    # 3. Запускаем статус драфта и ставим таймер 2 часа на первый пик
+    league.draft_status = DraftStatus.DRAFTING
+    league.current_pick_index = 1
+    league.draft_order = {"order": member_uids}
+    # league.pick_deadline = ... (Сделаем таймер в следующем спринте)
+
+    await db.commit()
+    return {"status": "success"}
+
+@router.get("/leagues/{league_id}/draft_board")
+async def get_draft_board(league_id: int, db: AsyncSession = Depends(get_db)):
+    """Отдает текущее состояние комнаты драфта"""
+    league = await db.get(League, league_id)
+    if not league: raise HTTPException(404, "League not found")
+
+    # 1. Кто выбирает прямо сейчас? (Первый пик, где нет игрока)
+    res_current = await db.execute(
+        select(DraftPick, User).join(User, DraftPick.user_id == User.id)
+        .where(DraftPick.league_id == league_id, DraftPick.player_id == None)
+        .order_by(DraftPick.overall_pick).limit(1)
+    )
+    current = res_current.first()
+    
+    current_pick_data = None
+    if current:
+        dp, u = current
+        current_pick_data = {
+            "user_id": dp.user_id,
+            "manager": u.display_name,
+            "round": dp.round_number,
+            "pick": dp.pick_number,
+            "overall": dp.overall_pick
+        }
+
+    # 2. Какие игроки уже задрафтованы? (Чтобы скрыть их с рынка)
+    res_drafted = await db.execute(select(DraftPick).where(DraftPick.league_id == league_id, DraftPick.player_id != None))
+    drafted_ids = [d.player_id for d in res_drafted.scalars().all()]
+    
+    return {
+        "status": league.draft_status.value,
+        "current_pick": current_pick_data,
+        "drafted_ids": drafted_ids
+    }
