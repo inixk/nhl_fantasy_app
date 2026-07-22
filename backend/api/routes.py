@@ -275,7 +275,6 @@ async def join_league(req: JoinLeagueRequest, db: AsyncSession = Depends(get_db)
     league = res_league.scalar_one_or_none()
     if not league: raise HTTPException(status_code=404, detail="Лига не найдена.")
     
-    # Лимит участников для Snake Draft
     if league.league_type == LeagueType.SNAKE_DRAFT:
         res_count = await db.execute(select(LeagueMember).where(LeagueMember.league_id == league.id))
         if len(res_count.scalars().all()) >= 15:
@@ -342,12 +341,11 @@ async def get_player_logs(player_id: int, db: AsyncSession = Depends(get_db)):
     return {"player_name": player.full_name, "position": player.position.name, "logs": logs, "season_stats": season_stats}
 
 # ==========================================
-# 🐍 ЭНДПОИНТЫ ДВИЖКА DRAFT SNAKE (Спринт 6.2)
+# 🐍 ЭНДПОИНТЫ ДВИЖКА DRAFT SNAKE
 # ==========================================
 
 @router.get("/leagues/{league_id}/lobby")
 async def get_league_lobby(league_id: int, user_id: int, db: AsyncSession = Depends(get_db)):
-    """Отдает данные для Комнаты ожидания (Lobby) перед началом Snake Draft"""
     league = await db.get(League, league_id)
     if not league: raise HTTPException(status_code=404, detail="League not found")
 
@@ -364,22 +362,16 @@ async def get_league_lobby(league_id: int, user_id: int, db: AsyncSession = Depe
             is_commish = True
 
     return {
-        "name": league.name,
-        "invite_code": league.invite_code,
-        "draft_status": league.draft_status.value,
-        "members": members,
-        "is_commissioner": is_commish,
-        "max_members": 15
+        "name": league.name, "invite_code": league.invite_code, "draft_status": league.draft_status.value,
+        "members": members, "is_commissioner": is_commish, "max_members": 15
     }
 
 @router.post("/leagues/{league_id}/start_draft")
 async def start_draft(league_id: int, user_id: int, db: AsyncSession = Depends(get_db)):
-    """Генерация змейки (17 раундов)"""
     league = await db.get(League, league_id)
     if not league or league.league_type != LeagueType.SNAKE_DRAFT: raise HTTPException(400, "Not a snake draft league")
     if league.draft_status != DraftStatus.PRE_DRAFT: raise HTTPException(400, "Draft already started")
 
-    # Проверка комиссионера
     res_member = await db.execute(select(LeagueMember).where(LeagueMember.league_id == league_id, LeagueMember.user_id == user_id))
     member = res_member.scalar_one_or_none()
     if not member or not member.is_commissioner: raise HTTPException(403, "Только создатель может запустить драфт")
@@ -388,39 +380,28 @@ async def start_draft(league_id: int, user_id: int, db: AsyncSession = Depends(g
     all_members = res_members.scalars().all()
     if len(all_members) < 2: raise HTTPException(400, "Нужно минимум 2 участника для старта")
 
-    # 1. Перемешиваем участников
     member_uids = [m.user_id for m in all_members]
     random.shuffle(member_uids)
     
-    # 2. Генерируем змейку на 17 раундов
     overall = 1
     for round_num in range(1, 18):
-        # Четные раунды идут в обратном порядке (Snake logic)
         round_order = member_uids if round_num % 2 != 0 else list(reversed(member_uids))
         for pick_num, uid in enumerate(round_order, 1):
-            dp = DraftPick(
-                league_id=league.id, user_id=uid,
-                round_number=round_num, pick_number=pick_num, overall_pick=overall
-            )
-            db.add(dp)
+            db.add(DraftPick(league_id=league.id, user_id=uid, round_number=round_num, pick_number=pick_num, overall_pick=overall))
             overall += 1
 
-    # 3. Запускаем статус драфта и ставим таймер 2 часа на первый пик
     league.draft_status = DraftStatus.DRAFTING
     league.current_pick_index = 1
     league.draft_order = {"order": member_uids}
-    # league.pick_deadline = ... (Сделаем таймер в следующем спринте)
 
     await db.commit()
     return {"status": "success"}
 
 @router.get("/leagues/{league_id}/draft_board")
 async def get_draft_board(league_id: int, db: AsyncSession = Depends(get_db)):
-    """Отдает текущее состояние комнаты драфта"""
     league = await db.get(League, league_id)
     if not league: raise HTTPException(404, "League not found")
 
-    # 1. Кто выбирает прямо сейчас? (Первый пик, где нет игрока)
     res_current = await db.execute(
         select(DraftPick, User).join(User, DraftPick.user_id == User.id)
         .where(DraftPick.league_id == league_id, DraftPick.player_id == None)
@@ -432,19 +413,67 @@ async def get_draft_board(league_id: int, db: AsyncSession = Depends(get_db)):
     if current:
         dp, u = current
         current_pick_data = {
-            "user_id": dp.user_id,
-            "manager": u.display_name,
-            "round": dp.round_number,
-            "pick": dp.pick_number,
-            "overall": dp.overall_pick
+            "user_id": dp.user_id, "manager": u.display_name,
+            "round": dp.round_number, "pick": dp.pick_number, "overall": dp.overall_pick
         }
 
-    # 2. Какие игроки уже задрафтованы? (Чтобы скрыть их с рынка)
     res_drafted = await db.execute(select(DraftPick).where(DraftPick.league_id == league_id, DraftPick.player_id != None))
     drafted_ids = [d.player_id for d in res_drafted.scalars().all()]
     
-    return {
-        "status": league.draft_status.value,
-        "current_pick": current_pick_data,
-        "drafted_ids": drafted_ids
-    }
+    return {"status": league.draft_status.value, "current_pick": current_pick_data, "drafted_ids": drafted_ids}
+
+# 🌟 НОВЫЙ ЭНДПОИНТ: СДЕЛАТЬ ПИК НА ДРАФТЕ 🌟
+@router.post("/leagues/{league_id}/draft_pick")
+async def make_draft_pick(league_id: int, req: DraftPickRequest, db: AsyncSession = Depends(get_db)):
+    league = await db.get(League, league_id)
+    if not league or league.league_type != LeagueType.SNAKE_DRAFT: raise HTTPException(400, "Not a snake draft league")
+    if league.draft_status != DraftStatus.DRAFTING: raise HTTPException(400, "Draft is not active")
+
+    # 1. Проверяем, чей сейчас ход
+    res_current = await db.execute(
+        select(DraftPick)
+        .where(DraftPick.league_id == league_id, DraftPick.player_id == None)
+        .order_by(DraftPick.overall_pick).limit(1)
+    )
+    current_pick = res_current.scalar_one_or_none()
+    
+    if not current_pick:
+        league.draft_status = DraftStatus.POST_DRAFT
+        await db.commit()
+        raise HTTPException(400, "Драфт уже завершен")
+
+    if current_pick.user_id != req.user_id:
+        raise HTTPException(403, "Сейчас не твой ход!")
+
+    # 2. Проверяем, не забрали ли игрока
+    res_check = await db.execute(
+        select(DraftPick).where(DraftPick.league_id == league_id, DraftPick.player_id == req.player_id)
+    )
+    if res_check.scalar_one_or_none():
+        raise HTTPException(400, "Этого игрока уже забрали!")
+
+    player = await db.get(NHLPlayer, req.player_id)
+    if not player: raise HTTPException(404, "Игрок не найден")
+    
+    res_member = await db.execute(select(LeagueMember).where(LeagueMember.league_id == league_id, LeagueMember.user_id == req.user_id))
+    member = res_member.scalar_one_or_none()
+
+    # 3. Делаем пик
+    current_pick.player_id = player.id
+    current_pick.picked_at = datetime.utcnow()
+    league.current_pick_index += 1
+    
+    # Добавляем в ростер (в драфте цены нас не волнуют, поэтому 0.0. Скамейку настроим позже)
+    db.add(RosterPlayer(member_id=member.id, player_id=player.id, acquired_price=0.0, is_benched=False))
+    
+    # 4. Проверяем, закончился ли драфт
+    res_next = await db.execute(
+        select(DraftPick)
+        .where(DraftPick.league_id == league_id, DraftPick.player_id == None)
+        .order_by(DraftPick.overall_pick).limit(1)
+    )
+    if not res_next.scalar_one_or_none():
+        league.draft_status = DraftStatus.POST_DRAFT
+
+    await db.commit()
+    return {"status": "success"}
