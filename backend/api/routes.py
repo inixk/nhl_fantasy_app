@@ -297,6 +297,40 @@ async def get_league_leaderboard(league_id: int, user_id: int, db: AsyncSession 
     leaderboard = [{"rank": rank, "name": member.team_name, "manager": user.display_name, "points": member.total_points, "is_me": member.user_id == user_id, "user_id": member.user_id} for rank, (member, user) in enumerate(res_members, start=1)]
     return {"leaderboard": leaderboard}
 
+@router.get("/leagues/{league_id}/lobby")
+async def get_league_lobby(league_id: int, user_id: int, db: AsyncSession = Depends(get_db)):
+    """Отдает данные для Комнаты ожидания (Lobby) перед началом Snake Draft"""
+    res_league = await db.execute(select(League).where(League.id == league_id))
+    league = res_league.scalar_one_or_none()
+    if not league: 
+        raise HTTPException(status_code=404, detail="League not found")
+
+    res_members = await db.execute(
+        select(LeagueMember, User).join(User, LeagueMember.user_id == User.id)
+        .where(LeagueMember.league_id == league_id)
+    )
+    
+    members = []
+    is_commish = False
+    
+    for member, user in res_members:
+        members.append({
+            "name": member.team_name,
+            "manager": user.display_name,
+            "is_me": member.user_id == user_id
+        })
+        if member.user_id == user_id and member.is_commissioner:
+            is_commish = True
+
+    return {
+        "name": league.name,
+        "invite_code": league.invite_code,
+        "draft_status": league.draft_status.value,
+        "members": members,
+        "is_commissioner": is_commish,
+        "max_members": 15 # Лимит для Snake Draft
+    }
+
 @router.get("/player/{player_id}/logs")
 async def get_player_logs(player_id: int, db: AsyncSession = Depends(get_db)):
     player = await db.get(NHLPlayer, player_id)
