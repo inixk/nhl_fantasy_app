@@ -59,33 +59,23 @@ async def get_players(position: str = None, db: AsyncSession = Depends(get_db)):
 
 @router.get("/my_team")
 async def get_my_team(user_id: int, db: AsyncSession = Depends(get_db)):
-    # 🌟 ЖЕСТКИЙ ФИКС ОШИБКИ 500: Сначала ищем глобальную лигу!
     res_league = await db.execute(select(League).where(League.is_global == True))
     global_league = res_league.scalar_one_or_none()
-    
     if not global_league:
         return {"balance": 10000.0, "roster": [], "captain_id": None, "transfers_used": 0, "captain_changes": 0}
 
-    # Теперь ищем юзера ИМЕННО в глобальной лиге
-    res_member = await db.execute(
-        select(LeagueMember).where(LeagueMember.user_id == user_id, LeagueMember.league_id == global_league.id)
-    )
+    res_member = await db.execute(select(LeagueMember).where(LeagueMember.user_id == user_id, LeagueMember.league_id == global_league.id))
     member = res_member.scalar_one_or_none()
-    
     if not member:
         return {"balance": 10000.0, "roster": [], "captain_id": None, "transfers_used": 0, "captain_changes": 0}
 
-    res_roster = await db.execute(
-        select(RosterPlayer).options(selectinload(RosterPlayer.player)).where(RosterPlayer.member_id == member.id)
-    )
-    roster = res_roster.scalars().all()
-    
+    res_roster = await db.execute(select(RosterPlayer).options(selectinload(RosterPlayer.player)).where(RosterPlayer.member_id == member.id))
     return {
         "balance": member.budget,
         "captain_id": member.captain_id,
         "transfers_used": member.transfers_used,
-        "captain_changes": member.captain_changes_used, # Отдаем фронтенду
-        "roster": [{"id": r.player_id, "pos": r.player.position.name} for r in roster]
+        "captain_changes": member.captain_changes_used,
+        "roster": [{"id": r.player_id, "pos": r.player.position.name} for r in res_roster.scalars().all()]
     }
 
 @router.post("/save_team")
@@ -106,43 +96,33 @@ async def save_team(req: SaveTeamRequest, db: AsyncSession = Depends(get_db)):
             db.add(member)
             await db.flush()
             
-        # 🌟 ИДЕАЛЬНАЯ ЛОГИКА ТРАНСФЕРОВ И КАПИТАНА 🌟
         res_old_roster = await db.execute(select(RosterPlayer).where(RosterPlayer.member_id == member.id))
         old_roster = res_old_roster.scalars().all()
         old_ids = set([r.player_id for r in old_roster])
         new_ids = set([pid for pid in req.roster_ids if pid is not None])
         
-        # Если старый состав меньше 17 человек — это бесплатный стартовый драфт!
         is_initial_draft = len(old_ids) < 17 
-        
         if not is_initial_draft:
-            # 1. Проверяем замены игроков
             new_players_added = len(new_ids - old_ids)
             if member.transfers_used + new_players_added > 6:
                 raise HTTPException(status_code=400, detail=f"Превышен лимит замен! Доступно: {6 - member.transfers_used}")
             member.transfers_used += new_players_added
-            
-            # 2. Проверяем смену капитана
             if req.captain_id and req.captain_id != member.captain_id:
                 if member.captain_changes_used >= 1:
-                    raise HTTPException(status_code=400, detail="Превышен лимит! Капитана можно менять 1 раз в неделю.")
+                    raise HTTPException(status_code=400, detail="Капитана можно менять 1 раз в неделю.")
                 member.captain_changes_used += 1
                 
-        # Перезаписываем ростер
         await db.execute(delete(RosterPlayer).where(RosterPlayer.member_id == member.id))
         for pid in req.roster_ids:
             if pid is not None:
                 player = await db.get(NHLPlayer, pid)
-                if player: 
-                    db.add(RosterPlayer(member_id=member.id, player_id=player.id, acquired_price=player.price))
+                if player: db.add(RosterPlayer(member_id=member.id, player_id=player.id, acquired_price=player.price))
                     
         member.budget = req.balance
         member.captain_id = req.captain_id
         await db.commit()
         return {"status": "success"}
-        
-    except HTTPException:
-        raise # Пробрасываем HTTP-ошибки на фронтенд как есть
+    except HTTPException: raise 
     except Exception as e:
         logger.error(f"Save Team Error: {str(e)}")
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
@@ -153,13 +133,10 @@ async def get_nhl_standings():
     if not data or "standings" not in data: raise HTTPException(status_code=500, detail="Failed to fetch standings")
     return data["standings"]
 
-# 🌟 УНИВЕРСАЛЬНЫЙ ПАРСЕР ИМЕН ДЛЯ НХЛ
 def get_player_name(obj_data: dict) -> str:
     if not obj_data: return "Unknown"
-    # Проверяем формат {"name": {"default": "Имя"}}
     if "name" in obj_data and isinstance(obj_data["name"], dict):
         return obj_data["name"].get("default", "Unknown")
-    # Проверяем формат {"firstName": {"default": "Имя"}, "lastName": ...}
     first = obj_data.get("firstName", {}).get("default", "")
     last = obj_data.get("lastName", {}).get("default", "")
     if first and last: return f"{first[0]}. {last}"
@@ -249,22 +226,26 @@ async def get_general_leaderboard(user_id: int, db: AsyncSession = Depends(get_d
     res_league = await db.execute(select(League).where(League.is_global == True))
     global_league = res_league.scalar_one_or_none()
     if not global_league: return {"leaderboard": [], "user_rank": None}
-    res_members = await db.execute(select(LeagueMember, User).join(User, LeagueMember.user_id == User.id).where(LeagueMember.league_id == global_league.id).order_by(desc(LeagueMember.total_points)))
+    
+    res_members = await db.execute(
+        select(LeagueMember, User).join(User, LeagueMember.user_id == User.id)
+        .where(LeagueMember.league_id == global_league.id).order_by(desc(LeagueMember.total_points))
+    )
     leaderboard, user_rank = [], None
     for rank, (member, user) in enumerate(res_members, start=1):
-        team_name = member.team_name if member.team_name != "My Team" else f"{user.display_name}'s Team"
-        if member.user_id == user_id: user_rank = {"rank": rank, "name": team_name, "manager": user.display_name, "points": member.total_points}
-        if rank <= 100: leaderboard.append({"rank": rank, "name": team_name, "manager": user.display_name, "points": member.total_points, "is_me": member.user_id == user_id})
+        team_name = member.team_name if member.team_name != "My Team" else f"Team {user.display_name}"
+        if member.user_id == user_id: 
+            user_rank = {"rank": rank, "name": team_name, "manager": user.display_name, "points": member.total_points, "user_id": member.user_id}
+        if rank <= 100: 
+            leaderboard.append({"rank": rank, "name": team_name, "manager": user.display_name, "points": member.total_points, "is_me": member.user_id == user_id, "user_id": member.user_id})
     return {"leaderboard": leaderboard, "user_rank": user_rank}
 
-# 🌟 ОБНОВЛЕНО: ТЕПЕРЬ ПОКАЗЫВАЕМ ТОП МЕНЕДЖЕРА ЛИГИ
 @router.get("/leagues/my")
 async def get_my_leagues(user_id: int, db: AsyncSession = Depends(get_db)):
     res = await db.execute(select(League).join(LeagueMember).where(LeagueMember.user_id == user_id, League.is_global == False))
     leagues = res.scalars().all()
     result = []
     for l in leagues:
-        # Ищем лидера этой лиги
         top_res = await db.execute(select(LeagueMember).where(LeagueMember.league_id == l.id).order_by(desc(LeagueMember.total_points)).limit(1))
         top_member = top_res.scalar_one_or_none()
         top_text = f"Top: {top_member.team_name} ({round(top_member.total_points)} FC)" if top_member else "No members"
@@ -299,12 +280,9 @@ async def join_league(req: JoinLeagueRequest, db: AsyncSession = Depends(get_db)
 @router.get("/leagues/{league_id}/leaderboard")
 async def get_league_leaderboard(league_id: int, user_id: int, db: AsyncSession = Depends(get_db)):
     res_members = await db.execute(select(LeagueMember, User).join(User, LeagueMember.user_id == User.id).where(LeagueMember.league_id == league_id).order_by(desc(LeagueMember.total_points)))
-    leaderboard = [{"rank": rank, "name": member.team_name, "manager": user.display_name, "points": member.total_points, "is_me": member.user_id == user_id} for rank, (member, user) in enumerate(res_members, start=1)]
+    leaderboard = [{"rank": rank, "name": member.team_name, "manager": user.display_name, "points": member.total_points, "is_me": member.user_id == user_id, "user_id": member.user_id} for rank, (member, user) in enumerate(res_members, start=1)]
     return {"leaderboard": leaderboard}
 
-# ==========================================
-# 📊 ЛОГИ ИГРОКОВ (GAME LOGS)
-# ==========================================
 @router.get("/player/{player_id}/logs")
 async def get_player_logs(player_id: int, db: AsyncSession = Depends(get_db)):
     player = await db.get(NHLPlayer, player_id)
@@ -314,15 +292,10 @@ async def get_player_logs(player_id: int, db: AsyncSession = Depends(get_db)):
     season = f"{now.year}{now.year+1}" if now.month >= 9 else f"{now.year-1}{now.year}"
     past_season = f"{int(season[:4])-1}{int(season[4:])-1}"
     
-    # 🌟 ДОБАВЛЕНО: Запрашиваем общую стату за сезон
     stats_info = await nhl_api.get_player_info(player_id)
     season_stats = {}
     if stats_info and "featuredStats" in stats_info:
-        # Пытаемся взять текущий сезон, если нет - берем прошлый
         subSeason = stats_info["featuredStats"].get("regularSeason", {}).get("subSeason", {})
-        if not subSeason: # Если текущий сезон пуст
-            # Тут нужен сложный парсинг карьеры, для MVP отдадим нули, если нет статы текущего сезона
-            pass
         season_stats = subSeason
 
     log_data = await nhl_api._request(f"player/{player_id}/game-log/{season}/2")
@@ -356,5 +329,4 @@ async def get_player_logs(player_id: int, db: AsyncSession = Depends(get_db)):
 
         logs.append({"date": g.get("gameDate", ""), "opponent": g.get("opponentAbbrev", "TBD"), "points": round(pts, 1), "raw": raw_stats})
         
-    # Отдаем season_stats на фронтенд
     return {"player_name": player.full_name, "position": player.position.name, "logs": logs, "season_stats": season_stats}

@@ -31,7 +31,7 @@ dp = Dispatcher()
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
     """Отправляет приветствие и кнопку для открытия Mini App"""
-    web_app_url = "https://cayman-webmaster-characteristics-spice.trycloudflare.com" 
+    web_app_url = "https://realtor-sitemap-extension-march.trycloudflare.com" 
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🏒 Играть в Фэнтази", web_app=WebAppInfo(url=web_app_url))]

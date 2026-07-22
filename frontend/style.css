@@ -1,6 +1,11 @@
 /* Скрываем скроллбары, но оставляем прокрутку */
+/* Полностью скрываем скроллбары и убираем прямоугольную вспышку при клике */
 ::-webkit-scrollbar { display: none; width: 0; background: transparent; }
-* { scrollbar-width: none; -ms-overflow-style: none; }
+* { 
+    scrollbar-width: none; 
+    -ms-overflow-style: none; 
+    -webkit-tap-highlight-color: transparent; /* 🌟 МАГИЯ: Убирает прямоугольники при нажатии */
+}
 
 :root {
     --bg-main: #0B132B; 
@@ -73,6 +78,12 @@ body {
 /* Остальные элементы (Гайд, кнопки, инпуты) */
 .modal-content { padding: 30px; width: 85%; text-align: center; }
 .highlight { color: var(--accent-green); }
+/* 🌟 Красивый текст для полноэкранного Гайда */
+.guide-text { text-align: left; }
+.guide-text h4 { color: var(--accent-blue); margin-top: 20px; margin-bottom: 8px; font-size: 16px; }
+.guide-text h4:first-child { margin-top: 0; }
+.guide-text p, .guide-text ul { font-size: 14px; color: #cbd5e1; line-height: 1.5; margin-top: 0; margin-bottom: 12px;}
+.guide-text li { margin-bottom: 6px; }
 /* 🌟 КРУГЛЫЕ КНОПКИ ЗАКРЫТИЯ (КРЕСТИКИ) */
 .icon-btn { 
     background: rgba(255, 255, 255, 0.1); 

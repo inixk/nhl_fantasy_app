@@ -18,21 +18,37 @@
         </div>
     </div>
 
-    <!-- Модалка: Guide -->
-    <div id="info-modal" class="modal-overlay" style="display: none;">
-        <div class="glass-panel modal-content guide-content">
-            <div class="guide-header">
-                <h2>User Guide 📖</h2>
-                <button id="close-info-btn" class="icon-btn">✕</button>
-            </div>
-            <div class="guide-body">
-                <h3>📌 Базовый концепт</h3><p>Модель <b>"Накопительной экономики" (Bull Market)</b>.</p><ul><li>1 Фэнтэзи-Балл = 1 Fantasy-Coin (FC).</li><li>Игроки растут или падают в цене от результатов.</li><li>Все 17 игроков активны.</li></ul>
-                <h3>💰 Бюджет</h3><p><b>Стартовый баланс:</b> 10 000 FC.</p><p><b>Новички:</b> Стартуют со средним капиталом лиги * 0.95.</p>
-                <h3>🏒 Состав (17 игроков)</h3><p><b>9 Нападающих (F)</b>, <b>6 Защитников (D)</b>, <b>2 Вратаря (G)</b>. Максимум 4 игрока из одного клуба.</p>
-                <h3>🔄 Замены (Трансферы)</h3><p><b>6 замен</b> на неделю. 🔒 <b>Player Lock:</b> Игроков нельзя продать/купить во время их матча.</p>
-                <h3>⭐️ Капитан (х2 Очков)</h3><p>Выбирается 1 раз на неделю. Все очки удваиваются!</p>
-                <h3>📊 Очки</h3><p><b>Полевые:</b> Гол +8, Пас +4, +/- (+1/-1), Броски/Хиты/Блоки +0.2, Победа +2. Минусы за штраф.</p><p><b>Вратари:</b> Сэйв +0.4, Пропущенная -1.5, Сухарь +10, Победа +6, Пас +10.</p>
-            </div>
+    <!-- 🌟 Модалка: Guide (Теперь полноэкранная!) -->
+    <div id="info-modal" class="fullscreen-modal" style="display: none;">
+        <div class="fullscreen-header">
+            <h3>User Guide 📖</h3>
+            <button id="close-info-btn" class="icon-btn">✕</button>
+        </div>
+        <div class="fullscreen-body guide-text">
+            <h4>📌 Базовый концепт</h4>
+            <p>Модель <b>"Накопительной экономики" (Bull Market)</b>.</p>
+            <ul>
+                <li>1 Фэнтэзи-Балл = 1 Fantasy-Coin (FC).</li>
+                <li>Игроки растут или падают в цене от результатов.</li>
+                <li>Все 17 игроков активны.</li>
+            </ul>
+            
+            <h4>💰 Бюджет</h4>
+            <p><b>Стартовый баланс:</b> 10 000 FC.</p>
+            <p><b>Новички:</b> Стартуют со средним капиталом лиги * 0.95.</p>
+            
+            <h4>🏒 Состав (17 игроков)</h4>
+            <p><b>9 Нападающих (F)</b>, <b>6 Защитников (D)</b>, <b>2 Вратаря (G)</b>.<br>Максимум 4 игрока из одного клуба.</p>
+            
+            <h4>🔄 Замены (Трансферы)</h4>
+            <p><b>6 замен</b> на неделю.<br>🔒 <b>Player Lock:</b> Игроков нельзя продать/купить во время их матча.</p>
+            
+            <h4>⭐️ Капитан (х2 Очков)</h4>
+            <p>Выбирается 1 раз на неделю. Все очки удваиваются!</p>
+            
+            <h4>📊 Очки</h4>
+            <p><b>Полевые:</b> Гол +8, Пас +4, +/- (+1/-1), Броски/Хиты/Блоки +0.2, Победа +2. Минусы за штраф.</p>
+            <p><b>Вратари:</b> Сэйв +0.4, Пропущенная -1, Сухарь +10, Победа +6, Пас +10.</p>
         </div>
     </div>
 
@@ -99,6 +115,18 @@
             Invite Code: <b id="private-league-code" style="color: var(--accent-green); margin-left: 5px; font-size: 16px; letter-spacing: 1px;"></b>
         </div>
         <div id="private-leaderboard-list" class="fullscreen-body"></div>
+    </div>
+
+<!-- 🌟 Модалка: Просмотр чужой команды -->
+    <div id="other-team-modal" class="fullscreen-modal" style="display: none;">
+        <div class="fullscreen-header">
+            <h3 id="other-team-title">Команда</h3>
+            <button id="close-other-team-btn" class="icon-btn">✕</button>
+        </div>
+        <!-- ВАЖНО: Класс fullscreen-body включает скролл! -->
+        <div id="other-team-rink-container" class="fullscreen-body" style="padding: 15px 5px; background: var(--bg-main);">
+            <div class="loading-text">Загрузка состава...</div>
+        </div>
     </div>
 
     <!-- Модалки Лиг -->
@@ -255,6 +283,6 @@
         <div class="nav-item" data-target="tab-leagues">🏆 Leagues</div>
     </div>
 
-    <script src="app.js?v=70"></script>
+    <script src="app.js?v=86"></script>
 </body>
 </html>
