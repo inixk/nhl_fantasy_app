@@ -22,7 +22,9 @@ const user = tg.initDataUnsafe?.user;
 const userId = user?.id || 123456789;
 const userName = user?.first_name || user?.username || 'Manager';
 
-if (document.getElementById('greeting')) document.getElementById('greeting').innerText = `Welcome, ${userName}! 🏒`;
+if (document.getElementById('greeting')) {
+    document.getElementById('greeting').innerText = `Welcome, ${userName}! 🏒`;
+}
 
 function populateTeamFilters() {
     const teams = Object.keys(teamColors).sort();
@@ -44,6 +46,7 @@ function debounce(func, wait) {
         timeout = setTimeout(() => func.apply(this, args), wait);
     };
 }
+
 const renderFantasyStatsDebounced = debounce(renderFantasyStats, 400);
 const renderMarketDebounced = debounce(renderMarket, 400);
 
@@ -83,6 +86,7 @@ navItems.forEach(item => {
         tabContents.forEach(tab => tab.classList.remove('active'));
         item.classList.add('active');
         document.getElementById(item.getAttribute('data-target')).classList.add('active');
+
         if (item.getAttribute('data-target') === 'tab-leagues') {
             fetchGeneralLeaderboard();
             fetchMyLeagues();
@@ -95,10 +99,16 @@ document.querySelectorAll('.segment-tab').forEach(tab => {
         const group = tab.getAttribute('data-group');
         document.querySelectorAll(`.segment-tab[data-group="${group}"]`).forEach(t => t.classList.remove('active'));
         document.querySelectorAll(`.sub-section[data-group="${group}"]`).forEach(s => s.classList.remove('active'));
+        
         tab.classList.add('active');
         document.getElementById(tab.getAttribute('data-target')).classList.add('active');
-        if (tab.getAttribute('data-target') === 'stats-leaders' && document.getElementById('leaders-table-container').innerHTML.includes('Выберите')) fetchLeaders();
-        if (tab.getAttribute('data-target') === 'stats-scores' && document.getElementById('scores-list-container').innerHTML.includes('Загрузка')) fetchScores();
+
+        if (tab.getAttribute('data-target') === 'stats-leaders') {
+            if (document.getElementById('leaders-table-container').innerHTML.includes('Выберите')) fetchLeaders();
+        }
+        if (tab.getAttribute('data-target') === 'stats-scores') {
+            if (document.getElementById('scores-list-container').innerHTML.includes('Загрузка')) fetchScores();
+        }
     });
 });
 
@@ -119,9 +129,12 @@ async function fetchMyTeam() {
         balance = data.balance;
         captainId = data.captain_id;
         savedCaptainId = data.captain_id;
+        
         const transfersLeft = 6 - (data.transfers_used || 0);
         document.getElementById('current-changes').innerText = transfersLeft;
+        
         myRoster = { F: [null,null,null,null,null,null,null,null,null], D: [null,null,null,null,null,null], G: [null,null] };
+        
         let fIndex = 0, dIndex = 0, gIndex = 0;
         data.roster.forEach(item => {
             const playerObj = allPlayers.find(p => p.id === item.id);
@@ -131,32 +144,50 @@ async function fetchMyTeam() {
                 if (item.pos === 'G' && gIndex < 2) myRoster.G[gIndex++] = playerObj;
             }
         });
+        
         let currentIds = [];
         ['F', 'D', 'G'].forEach(pos => { myRoster[pos].forEach(p => { currentIds.push(p ? p.id : null); }); });
         savedRosterString = JSON.stringify(currentIds);
+        
         updateTeamUI();
     } catch (error) { console.error("Error fetching my team:", error); }
 }
 
-function createPlayerCardHTML(p, showBuyButton = false) {
+function createPlayerCardHTML(p, showBuyButton = false, isDraftMode = false) {
     let ptsClass = p.points > 0 ? 'pts-positive' : (p.points < 0 ? 'pts-negative' : 'pts-neutral');
     let ptsPrefix = p.points > 0 ? '+' : '';
     let rightSide = `<div class="player-right"><span class="pts-value ${ptsClass}">${ptsPrefix}${Math.round(p.points)}</span><span class="pts-label">PTS</span></div>`;
-    if (showBuyButton) rightSide = `<div class="player-right"><button class="pick-btn" onclick="buyPlayer(${p.id}, event)">Pick✅</button></div>`;
+    
+    if (showBuyButton) {
+        rightSide = `<div class="player-right"><button class="pick-btn" onclick="buyPlayer(${p.id}, event)">Pick✅</button></div>`;
+    }
+    
+    // 🌟 ДЛЯ ДРАФТА МЕНЯЕМ КНОПКУ И ЦЕНУ
+    let priceLabel = `${p.price} FC`;
+    if (isDraftMode) {
+        priceLabel = `Прогноз: ${Math.round(p.price / 10)} PTS`;
+        rightSide = `<div class="player-right"><button class="pick-btn" style="background: var(--accent-blue); color: white; border: none;" onclick="makeDraftPick(${p.id}, event)">DRAFT</button></div>`;
+    }
+    
     const bgColor = teamColors[p.team] || '#1e293b';
     const textColor = ['BOS', 'NSH', 'PIT', 'VGK'].includes(p.team) ? '#000000' : '#ffffff';
     const logoUrl = `https://assets.nhle.com/logos/nhl/svg/${p.team}_light.svg`;
     const jerseyInner = `<img src="${logoUrl}" class="jersey-logo" onload="this.nextElementSibling.style.display='none'" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"><span class="jersey-team-text">${p.team}</span>`;
-    const onClickAttr = !showBuyButton ? `onclick="openPlayerProfile(${p.id})"` : '';
-    const cursorStyle = !showBuyButton ? 'cursor:pointer;' : '';
+    const onClickAttr = (!showBuyButton && !isDraftMode) ? `onclick="openPlayerProfile(${p.id})"` : '';
+    const cursorStyle = (!showBuyButton && !isDraftMode) ? 'cursor:pointer;' : '';
 
     return `
         <div class="player-card" ${onClickAttr} style="${cursorStyle}">
             <div class="player-left">
-                <div class="jersey-icon" style="background-color: ${bgColor}; color: ${textColor}; border-color: ${bgColor};">${jerseyInner}</div>
+                <div class="jersey-icon" style="background-color: ${bgColor}; color: ${textColor}; border-color: ${bgColor};">
+                    ${jerseyInner}
+                </div>
                 <div class="player-info">
                     <h4 class="player-name">${p.name}</h4>
-                    <div class="player-tags"><span class="badge pos-${p.position}">${p.position}</span><span class="player-price-white">${p.price} FC</span></div>
+                    <div class="player-tags">
+                        <span class="badge pos-${p.position}">${p.position}</span>
+                        <span class="player-price-white">${priceLabel}</span>
+                    </div>
                 </div>
             </div>
             ${rightSide}
@@ -164,19 +195,22 @@ function createPlayerCardHTML(p, showBuyButton = false) {
 }
 
 function filterAndSort(searchId, posId, teamId, sortId, minPriceId, maxPriceId, positionForce = null) {
-    const search = document.getElementById(searchId).value.toLowerCase();
+    const search = document.getElementById(searchId)?.value.toLowerCase() || "";
     const posFilter = positionForce || (document.getElementById(posId) ? document.getElementById(posId).value : 'ALL');
-    const teamFilter = document.getElementById(teamId).value;
-    const sortBy = document.getElementById(sortId).value;
+    const teamFilter = document.getElementById(teamId)?.value || "ALL";
+    const sortBy = document.getElementById(sortId)?.value || "price_desc";
     const minPrice = parseInt(document.getElementById(minPriceId)?.value) || 0;
     const maxPrice = parseInt(document.getElementById(maxPriceId)?.value) || 99999;
+
     let filtered = allPlayers.filter(p => p.name.toLowerCase().includes(search) && p.price >= minPrice && p.price <= maxPrice);
     if (posFilter !== 'ALL') filtered = filtered.filter(p => p.position === posFilter);
     if (teamFilter !== 'ALL') filtered = filtered.filter(p => p.team === teamFilter);
+
     if (sortBy === 'points_desc') filtered.sort((a, b) => b.points - a.points);
     if (sortBy === 'points_asc') filtered.sort((a, b) => a.points - b.points);
     if (sortBy === 'price_desc') filtered.sort((a, b) => b.price - a.price);
     if (sortBy === 'price_asc') filtered.sort((a, b) => a.price - b.price);
+
     return filtered;
 }
 
@@ -231,10 +265,6 @@ document.getElementById('action-btn-sell')?.addEventListener('click', () => {
     closeModal('action-sheet-modal');
 });
 document.getElementById('action-btn-cancel')?.addEventListener('click', () => { closeModal('action-sheet-modal'); });
-
-document.querySelectorAll('.modal-overlay').forEach(overlay => {
-    overlay.addEventListener('click', function(e) { if(e.target === this) { closeModal(this.id); } });
-});
 document.getElementById('close-market-btn')?.addEventListener('click', () => { closeModal('market-modal'); });
 
 window.buyPlayer = function(playerId, event) {
@@ -245,7 +275,6 @@ window.buyPlayer = function(playerId, event) {
     ['F', 'D', 'G'].forEach(pos => { myRoster[pos].forEach(p => { if (p && p.team === player.team) teamCount++; }); });
     if (teamCount >= 4) { tg.showAlert(`Limit reached! Max 4 players from ${player.team}.`); return; }
     if (balance < player.price) { tg.showAlert(`Not enough FC! You need ${player.price} FC.`); return; }
-
     balance -= player.price;
     myRoster[currentTransferSlot.pos][currentTransferSlot.index] = player;
     closeModal('market-modal');
@@ -428,29 +457,18 @@ async function fetchMyLeagues() {
         const list = document.getElementById('my-leagues-list');
         if (leagues.length === 0) { list.innerHTML = "<div class='loading-text' style='padding-top:30px;'>Вы еще не состоите в частных лигах. Создайте свою или вступите по коду!</div>"; return; }
         let html = '';
-        
         leagues.forEach(l => { 
-            // 🌟 РАЗДЕЛЯЕМ КЛИК И ПОКАЗЫВАЕМ ЗНАЧОК ЗМЕИ
             const typeIcon = l.league_type === "snake_draft" ? "🐍" : "📈";
-            
-            html += `
-            <div class="league-card" onclick="viewPrivateLeague(${l.id}, '${l.name}', '${l.invite_code}', '${l.league_type}', '${l.draft_status}')">
-                <div>
-                    <div class="league-card-title">${typeIcon} ${l.name}</div>
-                    <div class="league-card-code">${l.top_manager || 'No members'}</div>
-                </div>
-                <div style="color: var(--accent-blue); font-size: 20px;">➔</div>
-            </div>`; 
+            html += `<div class="league-card" onclick="viewPrivateLeague(${l.id}, '${l.name}', '${l.invite_code}', '${l.league_type}', '${l.draft_status}')"><div><div class="league-card-title">${typeIcon} ${l.name}</div><div class="league-card-code">${l.top_manager || 'No members'}</div></div><div style="color: var(--accent-blue); font-size: 20px;">➔</div></div>`; 
         });
         list.innerHTML = html;
     } catch (e) { console.error(e); }
 }
 
-// 🌟 МАГИЯ РОУТИНГА ЛИГ
+// 🌟 МАГИЯ РОУТИНГА ЛИГ (ОТКРЫТИЕ ЛОББИ ИЛИ РЕЙТИНГА)
 window.viewPrivateLeague = async function(leagueId, name, code, leagueType, draftStatus) {
     document.getElementById('private-league-title').innerText = name;
     
-    // Блюр Инвайт кода
     const codeEl = document.getElementById('private-league-code');
     codeEl.innerText = code;
     codeEl.className = 'spoiler'; 
@@ -463,14 +481,14 @@ window.viewPrivateLeague = async function(leagueId, name, code, leagueType, draf
     });
 
     if (leagueType === 'snake_draft') {
-        // ЕСЛИ ЗМЕЙКА - ОТКРЫВАЕМ ЛОББИ ИЛИ ДРАФТ
         if (draftStatus === 'pre_draft') {
-            openDraftLobby(leagueId, name, newCodeEl);
+            openDraftLobby(leagueId);
+        } else if (draftStatus === 'drafting') {
+            openDraftRoom(leagueId, name);
         } else {
-            tg.showAlert("Драфт уже идет или завершен! Скоро добавим этот экран.");
+            tg.showAlert("Драфт завершен! Скоро добавим этот экран.");
         }
     } else {
-        // ЕСЛИ БЫЧИЙ РЫНОК - ОТКРЫВАЕМ ОБЫЧНЫЙ ЛИДЕРБОРД
         openModal('private-league-modal', 'flex');
         document.getElementById('private-leaderboard-list').innerHTML = "<div class='loading-text'>Загрузка...</div>";
         try {
@@ -481,57 +499,6 @@ window.viewPrivateLeague = async function(leagueId, name, code, leagueType, draf
     }
 };
 
-// 🌟 НОВАЯ ФУНКЦИЯ ДЛЯ ЛОББИ ЗМЕЙКИ
-async function openDraftLobby(leagueId) {
-    openModal('draft-lobby-modal', 'flex');
-    document.getElementById('lobby-members-list').innerHTML = "<div class='loading-text'>Загрузка лобби...</div>";
-    
-    try {
-        const res = await fetch(`/api/leagues/${leagueId}/lobby?user_id=${userId}`);
-        const data = await res.json();
-        
-        document.getElementById('lobby-league-title').innerText = data.name;
-        
-        // Копируем уже настроенный блюр-элемент из модалки лидерборда
-        const codeEl = document.getElementById('lobby-league-code');
-        codeEl.innerText = data.invite_code;
-        codeEl.className = 'spoiler';
-        const newCodeEl = codeEl.cloneNode(true);
-        codeEl.parentNode.replaceChild(newCodeEl, codeEl);
-        newCodeEl.addEventListener('click', function(e) {
-            e.stopPropagation();
-            this.classList.add('revealed');
-            navigator.clipboard.writeText(this.innerText).then(() => { tg.showAlert("✅ Invite Code скопирован!"); });
-        });
-
-        document.getElementById('lobby-members-count').innerText = `${data.members.length}/${data.max_members}`;
-        
-        let html = '';
-        data.members.forEach(m => {
-            html += `<div class="leaderboard-item ${m.is_me ? 'is-me' : ''}">
-                <div class="lb-user-info"><div class="lb-team-name">${m.name}</div><div class="lb-manager-name">👤 ${m.manager}</div></div>
-            </div>`;
-        });
-        document.getElementById('lobby-members-list').innerHTML = html;
-        
-        const startBtn = document.getElementById('start-draft-btn');
-        const waitMsg = document.getElementById('lobby-wait-msg');
-        
-        if (data.is_commissioner) {
-            startBtn.style.display = 'block';
-            waitMsg.style.display = 'none';
-            // TODO: Прикрутить отправку запроса на старт драфта
-            startBtn.onclick = () => tg.showAlert("Тут будет старт Змейки!"); 
-        } else {
-            startBtn.style.display = 'none';
-            waitMsg.style.display = 'block';
-        }
-
-    } catch (e) {
-        document.getElementById('lobby-members-list').innerHTML = "<div class='loading-text'>Ошибка загрузки лобби.</div>";
-    }
-}
-document.getElementById('close-lobby-btn')?.addEventListener('click', () => { closeModal('draft-lobby-modal'); });
 document.getElementById('close-private-league-btn')?.addEventListener('click', () => { closeModal('private-league-modal'); });
 
 function createLeaderboardItemHTML(user, hideBottomMargin = false) {
@@ -562,7 +529,7 @@ document.getElementById('cancel-create-league')?.addEventListener('click', () =>
 document.getElementById('confirm-create-league')?.addEventListener('click', async () => {
     const name = document.getElementById('create-league-name').value.trim();
     const teamName = document.getElementById('create-team-name').value.trim();
-    const lType = document.getElementById('create-league-type').value; // 🌟 БЕРЕМ ТИП
+    const lType = document.getElementById('create-league-type').value; 
     
     if (name.length < 3) { tg.showAlert("Название лиги от 3 символов!"); return; }
     if (teamName.length < 3) { tg.showAlert("Название команды от 3 символов!"); return; }
@@ -603,106 +570,196 @@ document.getElementById('confirm-join-league')?.addEventListener('click', async 
 });
 
 // ==========================================
-// 7. ЛОГИ ИГРОКА (ПРОФИЛЬ)
+// 8. SNAKE DRAFT (ЛОББИ И ДРАФТ-КОМНАТА) 🐍
 // ==========================================
-let currentPlayerLogs = [];
-let showingAllLogs = false;
-let currentPlayerLogPos = 'F';
+let currentDraftLeagueId = null;
+let draftedPlayerIds = [];
+let isMyDraftTurn = false;
 
-window.openPlayerProfile = async function(playerId) {
-    openModal('player-profile-modal', 'flex'); 
-    document.getElementById('player-logs-list').innerHTML = "<div class='loading-text'>Загрузка истории...</div>";
-    document.getElementById('profile-name').innerText = "Загрузка...";
-    document.getElementById('profile-season-stats').innerHTML = ""; 
+// Открыть Лобби ожидания
+async function openDraftLobby(leagueId) {
+    currentDraftLeagueId = leagueId;
+    openModal('draft-lobby-modal', 'flex');
+    document.getElementById('lobby-members-list').innerHTML = "<div class='loading-text'>Загрузка лобби...</div>";
     
-    showingAllLogs = false;
-    document.getElementById('toggle-logs-btn').innerText = "Показать весь сезон";
-
     try {
-        const res = await fetch(`/api/player/${playerId}/logs`);
+        const res = await fetch(`/api/leagues/${leagueId}/lobby?user_id=${userId}`);
         const data = await res.json();
         
-        document.getElementById('profile-name').innerText = data.player_name;
-        currentPlayerLogs = data.logs;
-        currentPlayerLogPos = data.position;
+        document.getElementById('lobby-league-title').innerText = data.name;
         
-        const stats = data.season_stats;
-        let statsHtml = '';
-        if (stats) {
-            if (data.position === 'G') {
-                statsHtml = `
-                    <div class="profile-stat-item"><span class="profile-stat-val">${stats.gamesPlayed || 0}</span><span class="profile-stat-lbl">GP</span></div>
-                    <div class="profile-stat-item"><span class="profile-stat-val">${stats.savePctg ? stats.savePctg.toFixed(3) : '.000'}</span><span class="profile-stat-lbl">SV%</span></div>
-                    <div class="profile-stat-item"><span class="profile-stat-val">${stats.goalsAgainstAvg ? stats.goalsAgainstAvg.toFixed(2) : '0.00'}</span><span class="profile-stat-lbl">GAA</span></div>
-                    <div class="profile-stat-item"><span class="profile-stat-val">${stats.shutouts || 0}</span><span class="profile-stat-lbl">SO</span></div>
-                `;
-            } else {
-                const ppg = stats.gamesPlayed > 0 ? (stats.points / stats.gamesPlayed).toFixed(2) : '0.00';
-                statsHtml = `
-                    <div class="profile-stat-item"><span class="profile-stat-val">${stats.gamesPlayed || 0}</span><span class="profile-stat-lbl">GP</span></div>
-                    <div class="profile-stat-item"><span class="profile-stat-val">${stats.goals || 0}</span><span class="profile-stat-lbl">G</span></div>
-                    <div class="profile-stat-item"><span class="profile-stat-val">${stats.assists || 0}</span><span class="profile-stat-lbl">A</span></div>
-                    <div class="profile-stat-item"><span class="profile-stat-val">${ppg}</span><span class="profile-stat-lbl">PTS/G</span></div>
-                `;
-            }
-            document.getElementById('profile-season-stats').innerHTML = `<div class="profile-season-box">${statsHtml}</div>`;
-        }
-        
-        renderPlayerLogs();
-    } catch (e) {
-        document.getElementById('player-logs-list').innerHTML = "<div class='loading-text'>Ошибка загрузки</div>";
-    }
-};
+        const codeEl = document.getElementById('lobby-league-code');
+        codeEl.innerText = data.invite_code;
+        codeEl.className = 'spoiler';
+        const newCodeEl = codeEl.cloneNode(true);
+        codeEl.parentNode.replaceChild(newCodeEl, codeEl);
+        newCodeEl.addEventListener('click', function(e) {
+            e.stopPropagation();
+            this.classList.add('revealed');
+            navigator.clipboard.writeText(this.innerText).then(() => { tg.showAlert("✅ Invite Code скопирован!"); });
+        });
 
-function renderPlayerLogs() {
-    const list = document.getElementById('player-logs-list');
-    if (currentPlayerLogs.length === 0) { list.innerHTML = "<div class='loading-text'>Нет сыгранных матчей</div>"; return; }
-
-    const logsToShow = showingAllLogs ? currentPlayerLogs : currentPlayerLogs.slice(0, 5);
-    
-    let html = '';
-    logsToShow.forEach(log => {
-        let ptsClass = log.points > 0 ? 'pts-positive' : (log.points < 0 ? 'pts-negative' : 'pts-neutral');
-        let ptsPrefix = log.points > 0 ? '+' : '';
+        document.getElementById('lobby-members-count').innerText = `${data.members.length}/${data.max_members}`;
         
-        let statsGrid = '';
-        if (currentPlayerLogPos === 'G') {
-            statsGrid = `
-                <div class="stat-box"><span>${log.raw.sv}</span><label>SV</label></div>
-                <div class="stat-box"><span>${log.raw.ga}</span><label>GA</label></div>
-                <div class="stat-box"><span>${log.raw.sv_pct}</span><label>SV%</label></div>
-                <div class="stat-box"><span>${log.raw.toi}</span><label>TOI</label></div>`;
+        let html = '';
+        data.members.forEach(m => {
+            html += `<div class="leaderboard-item ${m.is_me ? 'is-me' : ''}">
+                <div class="lb-user-info"><div class="lb-team-name">${m.name}</div><div class="lb-manager-name">👤 ${m.manager}</div></div>
+            </div>`;
+        });
+        document.getElementById('lobby-members-list').innerHTML = html;
+        
+        const startBtn = document.getElementById('start-draft-btn');
+        const waitMsg = document.getElementById('lobby-wait-msg');
+        
+        if (data.is_commissioner) {
+            startBtn.style.display = 'block';
+            waitMsg.style.display = 'none';
+            // ВАЖНО: При клике вызываем функцию старта
+            startBtn.onclick = () => startDraft(leagueId);
         } else {
-            const pmStr = log.raw.pm > 0 ? `+${log.raw.pm}` : log.raw.pm;
-            statsGrid = `
-                <div class="stat-box"><span>${log.raw.g}</span><label>G</label></div>
-                <div class="stat-box"><span>${log.raw.a}</span><label>A</label></div>
-                <div class="stat-box"><span style="color: ${log.raw.pm > 0 ? '#00E676' : (log.raw.pm < 0 ? '#ef4444' : 'white')}">${pmStr}</span><label>+/-</label></div>
-                <div class="stat-box"><span>${log.raw.toi}</span><label>TOI</label></div>`;
+            startBtn.style.display = 'none';
+            waitMsg.style.display = 'block';
         }
+    } catch (e) {
+        console.error(e);
+        document.getElementById('lobby-members-list').innerHTML = "<div class='loading-text'>Ошибка загрузки лобби.</div>";
+    }
+}
+document.getElementById('close-lobby-btn')?.addEventListener('click', () => { closeModal('draft-lobby-modal'); });
 
-        html += `
-        <div class="log-card">
-            <div class="log-header">
-                <div class="log-date">📅 ${log.date}</div>
-                <div class="log-opp">vs ${log.opponent}</div>
-                <div class="log-pts ${ptsClass}">${ptsPrefix}${log.points} FC</div>
-            </div>
-            <div class="log-grid">${statsGrid}</div>
-        </div>`;
-    });
-    list.innerHTML = html;
+// Запуск драфта (Только для комиссионера)
+async function startDraft(leagueId) {
+    const btn = document.getElementById('start-draft-btn');
+    btn.disabled = true; btn.innerText = "...";
+    try {
+        const res = await fetch(`/api/leagues/${leagueId}/start_draft?user_id=${userId}`, { method: 'POST' });
+        if (res.ok) {
+            tg.showAlert("✅ Драфт успешно запущен!");
+            closeModal('draft-lobby-modal');
+            openDraftRoom(leagueId, document.getElementById('lobby-league-title').innerText);
+        } else {
+            const data = await res.json();
+            tg.showAlert("❌ Ошибка: " + (data.detail || "Не удалось запустить"));
+        }
+    } catch (e) {
+        tg.showAlert("❌ Ошибка сети");
+    } finally {
+        btn.disabled = false; btn.innerText = "🚀 Начать Драфт";
+    }
 }
 
-document.getElementById('close-profile-btn')?.addEventListener('click', () => { closeModal('player-profile-modal'); });
-document.getElementById('toggle-logs-btn')?.addEventListener('click', () => {
-    showingAllLogs = !showingAllLogs;
-    document.getElementById('toggle-logs-btn').innerText = showingAllLogs ? "Показать только 5" : "Показать весь сезон";
-    renderPlayerLogs();
-});
+// Открыть Драфт-Комнату
+async function openDraftRoom(leagueId, leagueName) {
+    currentDraftLeagueId = leagueId;
+    document.getElementById('draft-room-title').innerText = leagueName;
+    openModal('draft-room-modal', 'flex');
+    
+    await fetchDraftBoard(leagueId);
+}
+document.getElementById('close-draft-room-btn')?.addEventListener('click', () => { closeModal('draft-room-modal'); });
+
+// Запросить статус доски драфта с бэкенда
+async function fetchDraftBoard(leagueId) {
+    const banner = document.getElementById('draft-status-banner');
+    banner.innerText = "Обновление статуса...";
+    banner.className = ""; 
+    
+    try {
+        const res = await fetch(`/api/leagues/${leagueId}/draft_board`);
+        const data = await res.json();
+        
+        draftedPlayerIds = data.drafted_ids || [];
+        
+        if (data.status === "drafting" && data.current_pick) {
+            const cp = data.current_pick;
+            isMyDraftTurn = cp.user_id === userId;
+            
+            if (isMyDraftTurn) {
+                banner.innerText = `🟢 ТВОЙ ХОД! (Раунд ${cp.round}, Пик ${cp.pick})`;
+                banner.classList.add('draft-turn-me');
+                tg.HapticFeedback.notificationOccurred('warning');
+            } else {
+                banner.innerText = `⏳ На часах: ${cp.manager} (Раунд ${cp.round}, Пик ${cp.pick})`;
+                banner.style.background = "var(--glass-bg)";
+                banner.style.color = "var(--text-muted)";
+                banner.classList.remove('draft-turn-me');
+            }
+        } else if (data.status === "post_draft") {
+            banner.innerText = "✅ Драфт завершен!";
+            banner.style.background = "var(--accent-green)";
+            isMyDraftTurn = false;
+        }
+        
+        renderDraftPlayers();
+    } catch (e) { console.error(e); }
+}
+
+// Отрисовать игроков доступных для выбора на драфте
+function renderDraftPlayers() {
+    const list = document.getElementById('draft-players-list');
+    const search = document.getElementById('draft-search')?.value.toLowerCase() || "";
+    const posFilter = document.getElementById('draft-pos-filter')?.value || 'ALL';
+    const sortBy = document.getElementById('draft-sort')?.value || 'points_desc';
+
+    // 🌟 ВАЖНО: ОСТАВЛЯЕМ ТОЛЬКО ТЕХ, КОГО ЕЩЕ НЕ ЗАБРАЛИ!
+    let available = allPlayers.filter(p => !draftedPlayerIds.includes(p.id));
+    
+    available = available.filter(p => p.name.toLowerCase().includes(search));
+    if (posFilter !== 'ALL') available = available.filter(p => p.position === posFilter);
+
+    if (sortBy === 'points_desc') available.sort((a, b) => b.points - a.points);
+    if (sortBy === 'price_desc') available.sort((a, b) => b.price - a.price);
+
+    list.innerHTML = '';
+    available.slice(0, 50).forEach(p => {
+        // На драфте показываем "Прогноз очков" вместо цены в FC
+        const projectedPoints = Math.round(p.price / 10);
+        let rightSide = `<div class="player-right"><span class="pts-value" style="color:var(--text-muted)">${projectedPoints}</span><span class="pts-label">PROJ. PTS</span></div>`;
+        
+        if (isMyDraftTurn) {
+            rightSide = `<div class="player-right"><button class="pick-btn" style="background: var(--accent-blue); color: white; border:none;" onclick="makeDraftPick(${p.id})">DRAFT</button></div>`;
+        }
+
+        const bgColor = teamColors[p.team] || '#1e293b';
+        const textColor = ['BOS', 'NSH', 'PIT', 'VGK'].includes(p.team) ? '#000000' : '#ffffff';
+        const logoUrl = `https://assets.nhle.com/logos/nhl/svg/${p.team}_light.svg`;
+        const jerseyInner = `<img src="${logoUrl}" class="jersey-logo" onload="this.nextElementSibling.style.display='none'" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"><span class="jersey-team-text">${p.team}</span>`;
+
+        list.innerHTML += `
+            <div class="player-card" onclick="openPlayerProfile(${p.id})">
+                <div class="player-left">
+                    <div class="jersey-icon" style="background-color: ${bgColor}; color: ${textColor}; border-color: ${bgColor};">${jerseyInner}</div>
+                    <div class="player-info">
+                        <h4 class="player-name">${p.name}</h4>
+                        <div class="player-tags">
+                            <span class="badge pos-${p.position}">${p.position}</span>
+                            <span class="player-price-white">Rank: ${Math.round(p.price / 10)}</span>
+                        </div>
+                    </div>
+                </div>
+                ${rightSide}
+            </div>`;
+    });
+}
+
+// Слушатели для окна драфта
+document.getElementById('draft-search')?.addEventListener('input', debounce(renderDraftPlayers, 400));
+document.getElementById('draft-pos-filter')?.addEventListener('change', renderDraftPlayers);
+document.getElementById('draft-sort')?.addEventListener('change', renderDraftPlayers);
+
+window.makeDraftPick = function(playerId) {
+    const p = allPlayers.find(pl => pl.id === playerId);
+    tg.showConfirm(`Уверен, что хочешь забрать ${p.name}?`, async (confirmed) => {
+        if (confirmed) {
+            tg.showAlert("Отправка пика на сервер... (Сделаем эндпоинт в следующем спринте!)");
+            // В следующем спринте здесь будет fetch запрос к /api/leagues/{id}/draft_pick
+        }
+    });
+};
 
 // ==========================================
-// 8. ПРОСМОТР ЧУЖИХ КОМАНД
+// 9. ПРОСМОТР ЧУЖИХ КОМАНД И ЛОГИ ИГРОКА
 // ==========================================
 window.viewOtherTeam = async function(otherUserId, teamName) {
     openModal('other-team-modal', 'flex'); 
@@ -742,7 +799,7 @@ window.viewOtherTeam = async function(otherUserId, teamName) {
                             const jerseyInner = `<img src="${logoUrl}" class="jersey-logo" onload="this.nextElementSibling.style.display='none'" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"><span class="jersey-team-text">${p.team}</span>`;
                             
                             slotHtml = `
-                                <div class="player-slot">
+                                <div class="player-slot" onclick="openPlayerProfile(${p.id})" style="cursor:pointer;">
                                     ${captainBadge}
                                     <div class="jersey" style="background-color: ${bgColor}; color: ${textColor}; border: 2px solid ${bgColor};">${jerseyInner}</div>
                                     <div class="slot-name" style="color: #cbd5e1;">${lastName}</div>
@@ -762,5 +819,76 @@ window.viewOtherTeam = async function(otherUserId, teamName) {
 
 document.getElementById('close-other-team-btn')?.addEventListener('click', () => { closeModal('other-team-modal'); });
 
-// START
+let currentPlayerLogs = [];
+let showingAllLogs = false;
+let currentPlayerLogPos = 'F';
+
+window.openPlayerProfile = async function(playerId) {
+    openModal('player-profile-modal', 'block'); 
+    document.getElementById('player-logs-list').innerHTML = "<div class='loading-text'>Загрузка истории...</div>";
+    document.getElementById('profile-name').innerText = "Загрузка...";
+    document.getElementById('profile-season-stats').innerHTML = ""; 
+    showingAllLogs = false;
+    document.getElementById('toggle-logs-btn').innerText = "Показать весь сезон";
+
+    try {
+        const res = await fetch(`/api/player/${playerId}/logs`);
+        const data = await res.json();
+        
+        document.getElementById('profile-name').innerText = data.player_name;
+        currentPlayerLogs = data.logs;
+        currentPlayerLogPos = data.position;
+        
+        const stats = data.season_stats;
+        let statsHtml = '';
+        if (stats) {
+            if (data.position === 'G') {
+                statsHtml = `
+                    <div class="profile-stat-item"><span class="profile-stat-val">${stats.gamesPlayed || 0}</span><span class="profile-stat-lbl">GP</span></div>
+                    <div class="profile-stat-item"><span class="profile-stat-val">${stats.savePctg ? stats.savePctg.toFixed(3) : '.000'}</span><span class="profile-stat-lbl">SV%</span></div>
+                    <div class="profile-stat-item"><span class="profile-stat-val">${stats.goalsAgainstAvg ? stats.goalsAgainstAvg.toFixed(2) : '0.00'}</span><span class="profile-stat-lbl">GAA</span></div>
+                    <div class="profile-stat-item"><span class="profile-stat-val">${stats.shutouts || 0}</span><span class="profile-stat-lbl">SO</span></div>
+                `;
+            } else {
+                const ppg = stats.gamesPlayed > 0 ? (stats.points / stats.gamesPlayed).toFixed(2) : '0.00';
+                statsHtml = `
+                    <div class="profile-stat-item"><span class="profile-stat-val">${stats.gamesPlayed || 0}</span><span class="profile-stat-lbl">GP</span></div>
+                    <div class="profile-stat-item"><span class="profile-stat-val">${stats.goals || 0}</span><span class="profile-stat-lbl">G</span></div>
+                    <div class="profile-stat-item"><span class="profile-stat-val">${stats.assists || 0}</span><span class="profile-stat-lbl">A</span></div>
+                    <div class="profile-stat-item"><span class="profile-stat-val">${ppg}</span><span class="profile-stat-lbl">PTS/G</span></div>
+                `;
+            }
+            document.getElementById('profile-season-stats').innerHTML = `<div class="profile-season-box">${statsHtml}</div>`;
+        }
+        renderPlayerLogs();
+    } catch (e) { document.getElementById('player-logs-list').innerHTML = "<div class='loading-text'>Ошибка загрузки</div>"; }
+};
+
+function renderPlayerLogs() {
+    const list = document.getElementById('player-logs-list');
+    if (currentPlayerLogs.length === 0) { list.innerHTML = "<div class='loading-text'>Нет сыгранных матчей</div>"; return; }
+
+    const logsToShow = showingAllLogs ? currentPlayerLogs : currentPlayerLogs.slice(0, 5);
+    
+    let html = '';
+    logsToShow.forEach(log => {
+        let ptsClass = log.points > 0 ? 'pts-positive' : (log.points < 0 ? 'pts-negative' : 'pts-neutral');
+        let ptsPrefix = log.points > 0 ? '+' : '';
+        
+        let statsGrid = '';
+        if (currentPlayerLogPos === 'G') {
+            statsGrid = `<div class="stat-box"><span>${log.raw.sv}</span><label>SV</label></div><div class="stat-box"><span>${log.raw.ga}</span><label>GA</label></div><div class="stat-box"><span>${log.raw.sv_pct}</span><label>SV%</label></div><div class="stat-box"><span>${log.raw.toi}</span><label>TOI</label></div>`;
+        } else {
+            const pmStr = log.raw.pm > 0 ? `+${log.raw.pm}` : log.raw.pm;
+            statsGrid = `<div class="stat-box"><span>${log.raw.g}</span><label>G</label></div><div class="stat-box"><span>${log.raw.a}</span><label>A</label></div><div class="stat-box"><span style="color: ${log.raw.pm > 0 ? '#00E676' : (log.raw.pm < 0 ? '#ef4444' : 'white')}">${pmStr}</span><label>+/-</label></div><div class="stat-box"><span>${log.raw.toi}</span><label>TOI</label></div>`;
+        }
+
+        html += `<div class="log-card"><div class="log-header"><div class="log-date">📅 ${log.date}</div><div class="log-opp">vs ${log.opponent}</div><div class="log-pts ${ptsClass}">${ptsPrefix}${log.points} FC</div></div><div class="log-grid">${statsGrid}</div></div>`;
+    });
+    list.innerHTML = html;
+}
+
+document.getElementById('close-profile-btn')?.addEventListener('click', () => { closeModal('player-profile-modal'); });
+document.getElementById('toggle-logs-btn')?.addEventListener('click', () => { showingAllLogs = !showingAllLogs; document.getElementById('toggle-logs-btn').innerText = showingAllLogs ? "Показать только 5" : "Показать весь сезон"; renderPlayerLogs(); });
+
 initApp();
