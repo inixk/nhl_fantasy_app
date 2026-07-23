@@ -646,17 +646,39 @@ document.getElementById('close-draft-room-btn')?.addEventListener('click', () =>
     if (draftPollInterval) clearInterval(draftPollInterval);
 });
 
+// Запрашивать статус доски драфта с бэкенда
 async function fetchDraftBoard(leagueId) {
     const banner = document.getElementById('draft-status-banner');
-    banner.innerText = "Обновление статуса...";
-    banner.className = ""; 
+    if (!banner.innerText.includes('ТВОЙ ХОД')) {
+        banner.innerText = "Обновление статуса...";
+    }
     
     try {
-        const res = await fetch(`/api/leagues/${leagueId}/draft_board`);
+        // ДОБАВИЛИ user_id в запрос!
+        const res = await fetch(`/api/leagues/${leagueId}/draft_board?user_id=${userId}`);
         const data = await res.json();
         
         draftedPlayerIds = data.drafted_ids || [];
         
+        // 🌟 Отрисовка моего состава (Трекер)
+        window.myDraftCounts = { F: 0, D: 0, G: 0 };
+        let miniHtml = '';
+        if (data.my_roster && data.my_roster.length > 0) {
+            data.my_roster.forEach(p => {
+                window.myDraftCounts[p.pos]++;
+                const posColor = p.pos === 'F' ? '#f87171' : (p.pos === 'D' ? '#60a5fa' : '#fbbf24');
+                const shortName = p.name.split(' ').pop();
+                miniHtml += `<div class="draft-mini-player"><span style="color:${posColor}; font-weight:bold;">${p.pos}</span> ${shortName}</div>`;
+            });
+        } else {
+            miniHtml = '<div style="color: var(--text-muted); font-size: 11px;">Вы пока никого не выбрали</div>';
+        }
+        document.getElementById('draft-f-count').innerText = window.myDraftCounts.F;
+        document.getElementById('draft-d-count').innerText = window.myDraftCounts.D;
+        document.getElementById('draft-g-count').innerText = window.myDraftCounts.G;
+        document.getElementById('draft-my-players-mini').innerHTML = miniHtml;
+
+        // 🌟 Обновление баннера
         if (data.status === "drafting" && data.current_pick) {
             const cp = data.current_pick;
             isMyDraftTurn = cp.user_id === userId;
@@ -664,7 +686,6 @@ async function fetchDraftBoard(leagueId) {
             if (isMyDraftTurn) {
                 banner.innerText = `🟢 ТВОЙ ХОД! (Раунд ${cp.round}, Пик ${cp.pick})`;
                 banner.classList.add('draft-turn-me');
-                // Вибрация только если ход только-что перешел к нам
                 if (!banner.hasAttribute('data-turn-notified')) {
                     tg.HapticFeedback.notificationOccurred('warning');
                     banner.setAttribute('data-turn-notified', 'true');
@@ -711,12 +732,19 @@ document.getElementById('draft-search')?.addEventListener('input', debounce(rend
 document.getElementById('draft-pos-filter')?.addEventListener('change', renderDraftPlayers);
 document.getElementById('draft-sort')?.addEventListener('change', renderDraftPlayers);
 
-// 🌟 СДЕЛАТЬ ПИК НА ДРАФТЕ
+// 🌟 СДЕЛАТЬ ПИК НА ДРАФТЕ С ПРОВЕРКОЙ ЛИМИТОВ
 window.makeDraftPick = function(playerId, event) {
     if(event) event.stopPropagation();
     const p = allPlayers.find(pl => pl.id === playerId);
     
-    tg.showConfirm(`Уверен, что хочешь забрать ${p.name}?`, async (confirmed) => {
+    // 🌟 Локальная защита от лишнего пика
+    const limits = { F: 9, D: 6, G: 2 };
+    if (window.myDraftCounts && window.myDraftCounts[p.position] >= limits[p.position]) {
+        tg.showAlert(`Лимит на позицию ${p.position} исчерпан! Максимум: ${limits[p.position]}`);
+        return;
+    }
+    
+    tg.showConfirm(`Забрать в команду: ${p.name}?`, async (confirmed) => {
         if (confirmed) {
             try {
                 const response = await fetch(`/api/leagues/${currentDraftLeagueId}/draft_pick`, {
@@ -727,7 +755,7 @@ window.makeDraftPick = function(playerId, event) {
                 const data = await response.json();
                 if (response.ok) {
                     tg.HapticFeedback.notificationOccurred('success');
-                    fetchDraftBoard(currentDraftLeagueId); // Мгновенно обновляем доску
+                    fetchDraftBoard(currentDraftLeagueId); // Мгновенно обновляем доску!
                 } else {
                     tg.showAlert("❌ Ошибка: " + (data.detail || "Не удалось сделать пик"));
                 }

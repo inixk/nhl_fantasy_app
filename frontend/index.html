@@ -141,17 +141,32 @@
         </div>
     </div>
 
-    <!-- 🌟 СЮДА: КОМНАТА ДРАФТА (DRAFT ROOM) -->
+<!-- 🌟 КОМНАТА ДРАФТА (DRAFT ROOM) -->
     <div id="draft-room-modal" class="fullscreen-modal" style="display: none;">
         <div class="fullscreen-header">
             <h3 id="draft-room-title">Draft Room</h3>
             <button id="close-draft-room-btn" class="icon-btn">✕</button>
         </div>
         
-        <!-- Баннер: Чья сейчас очередь -->
         <div id="draft-status-banner" style="background: var(--accent-blue); padding: 12px; text-align: center; font-weight: bold; color: white; flex-shrink:0; font-size: 14px;">
             Загрузка драфта...
         </div>
+
+        <!-- 🌟 НОВЫЙ БЛОК: ТРЕКЕР МОЕГО СОСТАВА -->
+        <div class="draft-my-team-summary">
+            <div class="draft-counts">
+                <span>Ваш состав:</span>
+                <span>
+                    <span style="color:#f87171" id="draft-f-count">0</span>/9 F | 
+                    <span style="color:#60a5fa" id="draft-d-count">0</span>/6 D | 
+                    <span style="color:#fbbf24" id="draft-g-count">0</span>/2 G
+                </span>
+            </div>
+            <div id="draft-my-players-mini" class="draft-mini-players-container">
+                <div style="color: var(--text-muted); font-size: 12px;">Вы пока никого не выбрали</div>
+            </div>
+        </div>
+        <!-- 🌟 КОНЕЦ БЛОКА ТРЕКЕРА -->
 
         <div class="filters-container">
             <input type="text" id="draft-search" placeholder="Player..." class="glass-input">
@@ -160,10 +175,13 @@
                     <option value="ALL">All Pos</option><option value="F">F</option><option value="D">D</option><option value="G">G</option>
                 </select>
                 <select id="draft-sort" class="glass-select" style="width: 48%">
-                    <option value="points_desc">📈 Топ по Очкам</option><option value="price_desc">💰 Топ по Рангу</option>
+                    <option value="price_desc">💰 Топ по прогнозу</option>
                 </select>
             </div>
         </div>
+        
+        <div id="draft-players-list" class="fullscreen-body"></div>
+    </div>
         
         <div id="draft-players-list" class="fullscreen-body"></div>
     </div>
@@ -304,6 +322,6 @@
         <div class="nav-item" data-target="tab-leagues">🏆 Leagues</div>
     </div>
 
-    <script src="app.js?v=45"></script>
+    <script src="app.js?v=46"></script>
 </body>
 </html>

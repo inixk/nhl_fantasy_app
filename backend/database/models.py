@@ -109,14 +109,19 @@ class RosterPlayer(Base):
     player: Mapped["NHLPlayer"] = relationship()
     __table_args__ = (UniqueConstraint("member_id", "player_id", name="uq_member_player"),)
 
-# 🌟 НОВАЯ ТАБЛИЦА: История пиков драфта
+# 🌟 ТАБЛИЦА: История пиков драфта
 class DraftPick(Base):
     __tablename__ = "draft_picks"
+    
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     league_id: Mapped[int] = mapped_column(Integer, ForeignKey("leagues.id"))
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
     player_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("nhl_players.id"), nullable=True)
     
-    pick_number: Mapped[int] = mapped_column(Integer) # Общий номер пика (1, 2, 3...)
+    # 🌟 ДОБАВЛЕНЫ НЕДОСТАЮЩИЕ ПОЛЯ
+    round_number: Mapped[int] = mapped_column(Integer) # Номер раунда
+    pick_number: Mapped[int] = mapped_column(Integer)  # Номер пика внутри раунда
+    overall_pick: Mapped[int] = mapped_column(Integer) # Общий номер пика (1, 2, 3...)
+    
     is_autopick: Mapped[bool] = mapped_column(Boolean, default=False)
     picked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

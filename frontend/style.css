@@ -275,3 +275,20 @@ body {
     100% { background-color: #00C853; }
 }
 .draft-turn-me { animation: pulseGreen 2s infinite; }
+
+/* 🌟 Стили для трекера состава внутри Драфта */
+.draft-my-team-summary {
+    background: rgba(0,0,0,0.2); border-bottom: 1px solid var(--glass-border);
+    padding: 10px 15px; font-size: 13px; flex-shrink: 0;
+}
+.draft-counts {
+    display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 10px;
+}
+.draft-mini-players-container {
+    display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px;
+}
+.draft-mini-player {
+    background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+    border-radius: 8px; padding: 6px 10px; white-space: nowrap;
+    display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+}

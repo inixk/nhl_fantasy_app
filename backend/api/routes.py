@@ -398,7 +398,7 @@ async def start_draft(league_id: int, user_id: int, db: AsyncSession = Depends(g
     return {"status": "success"}
 
 @router.get("/leagues/{league_id}/draft_board")
-async def get_draft_board(league_id: int, db: AsyncSession = Depends(get_db)):
+async def get_draft_board(league_id: int, user_id: int, db: AsyncSession = Depends(get_db)):
     league = await db.get(League, league_id)
     if not league: raise HTTPException(404, "League not found")
 
@@ -420,35 +420,38 @@ async def get_draft_board(league_id: int, db: AsyncSession = Depends(get_db)):
     res_drafted = await db.execute(select(DraftPick).where(DraftPick.league_id == league_id, DraftPick.player_id != None))
     drafted_ids = [d.player_id for d in res_drafted.scalars().all()]
     
-    return {"status": league.draft_status.value, "current_pick": current_pick_data, "drafted_ids": drafted_ids}
+    # 🌟 ДОБАВЛЕНО: Собираем мой текущий состав на драфте
+    my_roster = []
+    res_member = await db.execute(select(LeagueMember).where(LeagueMember.league_id == league_id, LeagueMember.user_id == user_id))
+    member = res_member.scalar_one_or_none()
+    if member:
+        res_rost = await db.execute(select(RosterPlayer).options(selectinload(RosterPlayer.player)).where(RosterPlayer.member_id == member.id))
+        for r in res_rost.scalars().all():
+            my_roster.append({"id": r.player_id, "pos": r.player.position.name, "name": r.player.full_name})
+            
+    return {"status": league.draft_status.value, "current_pick": current_pick_data, "drafted_ids": drafted_ids, "my_roster": my_roster}
 
-# 🌟 НОВЫЙ ЭНДПОИНТ: СДЕЛАТЬ ПИК НА ДРАФТЕ 🌟
+
 @router.post("/leagues/{league_id}/draft_pick")
 async def make_draft_pick(league_id: int, req: DraftPickRequest, db: AsyncSession = Depends(get_db)):
     league = await db.get(League, league_id)
     if not league or league.league_type != LeagueType.SNAKE_DRAFT: raise HTTPException(400, "Not a snake draft league")
     if league.draft_status != DraftStatus.DRAFTING: raise HTTPException(400, "Draft is not active")
 
-    # 1. Проверяем, чей сейчас ход
     res_current = await db.execute(
-        select(DraftPick)
-        .where(DraftPick.league_id == league_id, DraftPick.player_id == None)
-        .order_by(DraftPick.overall_pick).limit(1)
+        select(DraftPick).where(DraftPick.league_id == league_id, DraftPick.player_id == None).order_by(DraftPick.overall_pick).limit(1)
     )
     current_pick = res_current.scalar_one_or_none()
     
     if not current_pick:
         league.draft_status = DraftStatus.POST_DRAFT
         await db.commit()
-        raise HTTPException(400, "Драфт уже завершен")
+        raise HTTPException(400, "Драфт завершен")
 
     if current_pick.user_id != req.user_id:
         raise HTTPException(403, "Сейчас не твой ход!")
 
-    # 2. Проверяем, не забрали ли игрока
-    res_check = await db.execute(
-        select(DraftPick).where(DraftPick.league_id == league_id, DraftPick.player_id == req.player_id)
-    )
+    res_check = await db.execute(select(DraftPick).where(DraftPick.league_id == league_id, DraftPick.player_id == req.player_id))
     if res_check.scalar_one_or_none():
         raise HTTPException(400, "Этого игрока уже забрали!")
 
@@ -458,20 +461,32 @@ async def make_draft_pick(league_id: int, req: DraftPickRequest, db: AsyncSessio
     res_member = await db.execute(select(LeagueMember).where(LeagueMember.league_id == league_id, LeagueMember.user_id == req.user_id))
     member = res_member.scalar_one_or_none()
 
-    # 3. Делаем пик
+    # 🌟 ЛОГИКА ЛИМИТОВ ПОЗИЦИЙ
+    res_roster = await db.execute(select(RosterPlayer).options(selectinload(RosterPlayer.player)).where(RosterPlayer.member_id == member.id))
+    current_roster = res_roster.scalars().all()
+    
+    pos_counts = {"F": 0, "D": 0, "G": 0}
+    for rp in current_roster:
+        pos_counts[rp.player.position.name] += 1
+        
+    limits = {"F": 9, "D": 6, "G": 2}
+    starting_limits = {"F": 6, "D": 4, "G": 1}
+    
+    if pos_counts[player.position.name] >= limits[player.position.name]:
+        raise HTTPException(400, f"Лимит на позицию {player.position.name} исчерпан ({limits[player.position.name]} макс.)")
+
+    # 🌟 АВТО-ОТПРАВКА НА СКАМЕЙКУ (Если основа заполнена)
+    is_benched = pos_counts[player.position.name] >= starting_limits[player.position.name]
+
+    # Совершаем пик
     current_pick.player_id = player.id
     current_pick.picked_at = datetime.utcnow()
     league.current_pick_index += 1
     
-    # Добавляем в ростер (в драфте цены нас не волнуют, поэтому 0.0. Скамейку настроим позже)
-    db.add(RosterPlayer(member_id=member.id, player_id=player.id, acquired_price=0.0, is_benched=False))
+    db.add(RosterPlayer(member_id=member.id, player_id=player.id, acquired_price=0.0, is_benched=is_benched))
     
-    # 4. Проверяем, закончился ли драфт
-    res_next = await db.execute(
-        select(DraftPick)
-        .where(DraftPick.league_id == league_id, DraftPick.player_id == None)
-        .order_by(DraftPick.overall_pick).limit(1)
-    )
+    # Проверяем, был ли это последний пик в драфте
+    res_next = await db.execute(select(DraftPick).where(DraftPick.league_id == league_id, DraftPick.player_id == None).order_by(DraftPick.overall_pick).limit(1))
     if not res_next.scalar_one_or_none():
         league.draft_status = DraftStatus.POST_DRAFT
 
