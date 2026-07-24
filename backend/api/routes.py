@@ -1,3 +1,4 @@
+# backend/api/routes.py
 import random
 import string
 import asyncio
@@ -61,17 +62,31 @@ async def get_players(position: str = None, db: AsyncSession = Depends(get_db)):
     result = await db.execute(query)
     return [{"id": p.id, "name": p.full_name, "team": p.team_abbr, "position": p.position.name, "price": p.price, "points": p.fantasy_points, "photo": p.headshot_url} for p in result.scalars().all()]
 
+# 🌟 ИСПРАВЛЕНО: Теперь эндпоинт принимает league_id!
 @router.get("/my_team")
-async def get_my_team(user_id: int, db: AsyncSession = Depends(get_db)):
-    res_league = await db.execute(select(League).where(League.is_global == True))
-    global_league = res_league.scalar_one_or_none()
-    if not global_league: return {"balance": 10000.0, "roster": [], "captain_id": None, "transfers_used": 0, "captain_changes": 0}
-    res_member = await db.execute(select(LeagueMember).where(LeagueMember.user_id == user_id, LeagueMember.league_id == global_league.id))
+async def get_my_team(user_id: int, league_id: int = None, db: AsyncSession = Depends(get_db)):
+    if league_id:
+        res_league = await db.execute(select(League).where(League.id == league_id))
+        target_league = res_league.scalar_one_or_none()
+    else:
+        res_league = await db.execute(select(League).where(League.is_global == True))
+        target_league = res_league.scalar_one_or_none()
+        
+    if not target_league:
+        return {"balance": 10000.0, "roster": [], "captain_id": None, "transfers_used": 0, "captain_changes": 0}
+
+    res_member = await db.execute(select(LeagueMember).where(LeagueMember.user_id == user_id, LeagueMember.league_id == target_league.id))
     member = res_member.scalar_one_or_none()
-    if not member: return {"balance": 10000.0, "roster": [], "captain_id": None, "transfers_used": 0, "captain_changes": 0}
+    if not member:
+        return {"balance": 10000.0, "roster": [], "captain_id": None, "transfers_used": 0, "captain_changes": 0}
+
     res_roster = await db.execute(select(RosterPlayer).options(selectinload(RosterPlayer.player)).where(RosterPlayer.member_id == member.id))
-    roster = res_roster.scalars().all()
-    return {"balance": member.budget, "captain_id": member.captain_id, "transfers_used": member.transfers_used, "captain_changes": member.captain_changes_used, "roster": [{"id": r.player_id, "pos": r.player.position.name} for r in roster]}
+    
+    # 🌟 Отдаем также статус is_benched (Для скамейки)
+    return {
+        "balance": member.budget, "captain_id": member.captain_id, "transfers_used": member.transfers_used, "captain_changes": member.captain_changes_used,
+        "roster": [{"id": r.player_id, "pos": r.player.position.name, "is_benched": r.is_benched} for r in res_roster.scalars().all()]
+    }
 
 @router.post("/save_team")
 async def save_team(req: SaveTeamRequest, db: AsyncSession = Depends(get_db)):
@@ -83,6 +98,7 @@ async def save_team(req: SaveTeamRequest, db: AsyncSession = Depends(get_db)):
             global_league = League(name="General Leaderboard", invite_code="GLOBAL", is_global=True)
             db.add(global_league)
             await db.flush()
+            
         res_member = await db.execute(select(LeagueMember).where(LeagueMember.user_id == user.id, LeagueMember.league_id == global_league.id))
         member = res_member.scalar_one_or_none()
         if not member:
@@ -98,7 +114,8 @@ async def save_team(req: SaveTeamRequest, db: AsyncSession = Depends(get_db)):
         is_initial_draft = len(old_ids) < 17 
         if not is_initial_draft:
             new_players_added = len(new_ids - old_ids)
-            if member.transfers_used + new_players_added > 6: raise HTTPException(status_code=400, detail=f"Превышен лимит замен! Доступно: {6 - member.transfers_used}")
+            if member.transfers_used + new_players_added > 6:
+                raise HTTPException(status_code=400, detail=f"Превышен лимит замен! Доступно: {6 - member.transfers_used}")
             member.transfers_used += new_players_added
             if req.captain_id and req.captain_id != member.captain_id:
                 if member.captain_changes_used >= 1: raise HTTPException(status_code=400, detail="Капитана можно менять 1 раз в неделю.")
@@ -109,6 +126,7 @@ async def save_team(req: SaveTeamRequest, db: AsyncSession = Depends(get_db)):
             if pid is not None:
                 player = await db.get(NHLPlayer, pid)
                 if player: db.add(RosterPlayer(member_id=member.id, player_id=player.id, acquired_price=player.price))
+                    
         member.budget = req.balance
         member.captain_id = req.captain_id
         await db.commit()
@@ -215,21 +233,26 @@ async def get_player_logs(player_id: int, db: AsyncSession = Depends(get_db)):
     now = datetime.utcnow()
     season = f"{now.year}{now.year+1}" if now.month >= 9 else f"{now.year-1}{now.year}"
     past_season = f"{int(season[:4])-1}{int(season[4:])-1}"
+    
     stats_info = await nhl_api.get_player_info(player_id)
     season_stats = {}
     if stats_info and "featuredStats" in stats_info:
-        season_stats = stats_info["featuredStats"].get("regularSeason", {}).get("subSeason", {})
+        subSeason = stats_info["featuredStats"].get("regularSeason", {}).get("subSeason", {})
+        season_stats = subSeason
+
     log_data = await nhl_api._request(f"player/{player_id}/game-log/{season}/2")
     games = log_data.get("gameLog", []) if log_data else []
     if not games:
         log_data = await nhl_api._request(f"player/{player_id}/game-log/{past_season}/2")
         games = log_data.get("gameLog", []) if log_data else []
+
     logs = []
     for g in games:
         pts = 0.0
         toi = g.get("toi", g.get("timeOnIce", "00:00"))
         pim = g.get("pim", 0)
         raw_stats = {"toi": toi, "pim": pim}
+
         if player.position.name == "G":
             saves, ga, shutouts = g.get("saves", 0), g.get("goalsAgainst", 0), g.get("shutouts", 0)
             win = g.get("decision") == "W"
@@ -244,6 +267,7 @@ async def get_player_logs(player_id: int, db: AsyncSession = Depends(get_db)):
             gwg, otg = g.get("gameWinningGoals", 0), g.get("otGoals", 0)
             pts = (goals * 8.0) + (assists * 4.0) + (pm * 1.0) + (ppg * 2.0) + (shg * 4.0) + (gwg * 2.0) + (otg * 2.0)
             raw_stats.update({"g": goals, "a": assists, "pm": pm})
+
         logs.append({"date": g.get("gameDate", ""), "opponent": g.get("opponentAbbrev", "TBD"), "points": round(pts, 1), "raw": raw_stats})
     return {"player_name": player.full_name, "position": player.position.name, "logs": logs, "season_stats": season_stats}
 
@@ -259,10 +283,8 @@ async def get_general_leaderboard(user_id: int, db: AsyncSession = Depends(get_d
     leaderboard, user_rank = [], None
     for rank, (member, user) in enumerate(res_members, start=1):
         team_name = member.team_name if member.team_name != "My Team" else f"Team {user.display_name}"
-        if member.user_id == user_id: 
-            user_rank = {"rank": rank, "name": team_name, "manager": user.display_name, "points": member.total_points, "user_id": member.user_id, "is_commish": False}
-        if rank <= 100: 
-            leaderboard.append({"rank": rank, "name": team_name, "manager": user.display_name, "points": member.total_points, "is_me": member.user_id == user_id, "user_id": member.user_id, "is_commish": False})
+        if member.user_id == user_id: user_rank = {"rank": rank, "name": team_name, "manager": user.display_name, "points": member.total_points, "user_id": member.user_id, "is_commish": False}
+        if rank <= 100: leaderboard.append({"rank": rank, "name": team_name, "manager": user.display_name, "points": member.total_points, "is_me": member.user_id == user_id, "user_id": member.user_id, "is_commish": False})
     return {"leaderboard": leaderboard, "user_rank": user_rank}
 
 @router.get("/leagues/my")
@@ -314,7 +336,6 @@ async def get_league_leaderboard(league_id: int, user_id: int, db: AsyncSession 
     is_commish = False
     for rank, (member, user) in enumerate(res_members, start=1):
         if member.user_id == user_id and member.is_commissioner: is_commish = True
-        # 🌟 ДОБАВЛЕН is_commish для КАЖДОГО участника
         leaderboard.append({"rank": rank, "name": member.team_name, "manager": user.display_name, "points": member.total_points, "is_me": member.user_id == user_id, "user_id": member.user_id, "is_commish": member.is_commissioner})
     return {"leaderboard": leaderboard, "is_commissioner": is_commish}
 
@@ -342,14 +363,9 @@ async def get_league_lobby(league_id: int, user_id: int, db: AsyncSession = Depe
     members = []
     is_commish = False
     for member, user in res_members:
-        # 🌟 ДОБАВЛЕН is_commish
         members.append({"name": member.team_name, "manager": user.display_name, "is_me": member.user_id == user_id, "is_commish": member.is_commissioner})
         if member.user_id == user_id and member.is_commissioner: is_commish = True
-
-    return {
-        "name": league.name, "invite_code": league.invite_code, "draft_status": league.draft_status.value,
-        "members": members, "is_commissioner": is_commish, "max_members": 15
-    }
+    return {"name": league.name, "invite_code": league.invite_code, "draft_status": league.draft_status.value, "members": members, "is_commissioner": is_commish, "max_members": 15}
 
 @router.post("/leagues/{league_id}/start_draft")
 async def start_draft(league_id: int, user_id: int, db: AsyncSession = Depends(get_db)):
@@ -388,12 +404,13 @@ async def get_draft_board(league_id: int, user_id: int, db: AsyncSession = Depen
         current_pick_data = {"user_id": dp.user_id, "manager": u.display_name, "round": dp.round_number, "pick": dp.pick_number, "overall": dp.overall_pick}
     res_drafted = await db.execute(select(DraftPick).where(DraftPick.league_id == league_id, DraftPick.player_id != None))
     drafted_ids = [d.player_id for d in res_drafted.scalars().all()]
+    
     my_roster = []
     res_member = await db.execute(select(LeagueMember).where(LeagueMember.league_id == league_id, LeagueMember.user_id == user_id))
     member = res_member.scalar_one_or_none()
     if member:
         res_rost = await db.execute(select(RosterPlayer).options(selectinload(RosterPlayer.player)).where(RosterPlayer.member_id == member.id))
-        for r in res_rost.scalars().all(): my_roster.append({"id": r.player_id, "pos": r.player.position.name, "name": r.player.full_name})
+        for r in res_rost.scalars().all(): my_roster.append({"id": r.player_id, "pos": r.player.position.name, "name": r.player.full_name, "is_benched": r.is_benched})
     return {"status": league.draft_status.value, "current_pick": current_pick_data, "drafted_ids": drafted_ids, "my_roster": my_roster}
 
 @router.post("/leagues/{league_id}/draft_pick")
@@ -420,8 +437,7 @@ async def make_draft_pick(league_id: int, req: DraftPickRequest, db: AsyncSessio
     for rp in current_roster: pos_counts[rp.player.position.name] += 1
     limits = {"F": 9, "D": 6, "G": 2}
     starting_limits = {"F": 6, "D": 4, "G": 1}
-    if pos_counts[player.position.name] >= limits[player.position.name]:
-        raise HTTPException(400, f"Лимит на позицию {player.position.name} исчерпан ({limits[player.position.name]} макс.)")
+    if pos_counts[player.position.name] >= limits[player.position.name]: raise HTTPException(400, f"Лимит на позицию {player.position.name} исчерпан ({limits[player.position.name]} макс.)")
     is_benched = pos_counts[player.position.name] >= starting_limits[player.position.name]
     current_pick.player_id = player.id
     current_pick.picked_at = datetime.utcnow()
