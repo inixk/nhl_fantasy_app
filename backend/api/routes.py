@@ -509,3 +509,78 @@ async def set_snake_captain(league_id: int, payload: dict, db: AsyncSession = De
         return {"status": "success"}
         
     raise HTTPException(404, "Member not found")
+
+# ==========================================
+# 🛒 РЫНОК СВОБОДНЫХ АГЕНТОВ (WAIVERS)
+# ==========================================
+
+@router.get("/leagues/{league_id}/owned_players")
+async def get_owned_players(league_id: int, db: AsyncSession = Depends(get_db)):
+    """Возвращает ID всех игроков, которые уже находятся в чьей-то команде в этой лиге"""
+    res = await db.execute(
+        select(RosterPlayer.player_id)
+        .join(LeagueMember)
+        .where(LeagueMember.league_id == league_id)
+    )
+    return {"owned_ids": res.scalars().all()}
+
+class WaiverClaimRequest(BaseModel):
+    user_id: int
+    drop_player_id: int
+    add_player_id: int
+
+@router.post("/leagues/{league_id}/waiver_claim")
+async def waiver_claim(league_id: int, req: WaiverClaimRequest, db: AsyncSession = Depends(get_db)):
+    """Осуществляет замену игрока с рынка свободных агентов (Waivers)"""
+    res_member = await db.execute(
+        select(LeagueMember).where(LeagueMember.league_id == league_id, LeagueMember.user_id == req.user_id)
+    )
+    member = res_member.scalar_one_or_none()
+    if not member:
+        raise HTTPException(404, "Member not found")
+
+    # 1. Проверяем лимит (Максимум 2 замены в неделю для Snake)
+    if member.transfers_used >= 2:
+        raise HTTPException(400, "Превышен лимит! Доступно 0/2 замен на этой неделе.")
+
+    # 2. Защита Капитана
+    if member.captain_id == req.drop_player_id:
+        raise HTTPException(400, "Нельзя сбросить Капитана! Сначала назначьте капитаном другого игрока.")
+
+    # 3. Ищем игрока на сброс в составе
+    res_drop = await db.execute(
+        select(RosterPlayer).where(RosterPlayer.member_id == member.id, RosterPlayer.player_id == req.drop_player_id)
+    )
+    rp_drop = res_drop.scalar_one_or_none()
+    if not rp_drop:
+        raise HTTPException(400, "Игрок для сброса не найден в вашем составе.")
+
+    # 4. Проверяем, свободен ли новый игрок
+    res_add_check = await db.execute(
+        select(RosterPlayer).join(LeagueMember).where(LeagueMember.league_id == league_id, RosterPlayer.player_id == req.add_player_id)
+    )
+    if res_add_check.scalar_one_or_none():
+        raise HTTPException(400, "Этот игрок уже находится в другой команде.")
+
+    # 5. Проверяем позицию
+    p_drop = await db.get(NHLPlayer, req.drop_player_id)
+    p_add = await db.get(NHLPlayer, req.add_player_id)
+    if p_drop.position != p_add.position:
+        raise HTTPException(400, "Игроки должны быть одной позиции.")
+
+    # 6. Осуществляем обмен (Наследуем статус скамейки)
+    benched_status = rp_drop.is_benched 
+    await db.delete(rp_drop)
+    
+    db.add(RosterPlayer(
+        member_id=member.id, 
+        player_id=req.add_player_id, 
+        is_benched=benched_status, 
+        acquired_price=0.0
+    ))
+    
+    # Списываем 1 замену
+    member.transfers_used += 1
+    await db.commit()
+    
+    return {"status": "success"}

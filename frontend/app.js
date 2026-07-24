@@ -1025,6 +1025,133 @@ function renderPlayerLogs() {
     list.innerHTML = html;
 }
 
+// ==========================================
+// 🛒 РЫНОК СВОБОДНЫХ АГЕНТОВ (WAIVERS)
+// ==========================================
+window.currentSnakeOwnedIds = []; // Все задрафтованные игроки лиги
+let currentWaiverClaimsUsed = 0;
+
+// Обновляем fetchSnakeHubTeam, чтобы он заодно подтягивал Waivers
+const originalFetchSnakeHubTeam = window.fetchSnakeHubTeam;
+window.fetchSnakeHubTeam = async function(leagueId) {
+    await originalFetchSnakeHubTeam(leagueId); // Загрузит ростер
+    
+    // Подтягиваем информацию по лимитам замен
+    try {
+        const resMy = await fetch(`/api/my_team?user_id=${userId}&league_id=${leagueId}`);
+        const dataMy = await res.json();
+        currentWaiverClaimsUsed = dataMy.transfers_used || 0;
+        document.getElementById('waiver-claims-count').innerText = `${2 - currentWaiverClaimsUsed}/2`;
+    } catch(e) {}
+
+    // Подтягиваем занятых игроков
+    try {
+        const resOwned = await fetch(`/api/leagues/${leagueId}/owned_players`);
+        const dataOwned = await resOwned.json();
+        window.currentSnakeOwnedIds = dataOwned.owned_ids;
+        renderWaivers();
+    } catch(e) {}
+};
+
+// Рендер вкладки Waivers (только просмотр профилей)
+function renderWaivers() {
+    const list = document.getElementById('waivers-players-list');
+    const search = document.getElementById('waivers-search')?.value.toLowerCase() || "";
+    const posFilter = document.getElementById('waivers-pos-filter')?.value || 'ALL';
+    const teamFilter = document.getElementById('waivers-team-filter')?.value || "ALL";
+    const sortBy = document.getElementById('waivers-sort')?.value || "points_desc";
+
+    // Исключаем всех, кто уже в чьей-то команде!
+    let filtered = allPlayers.filter(p => !window.currentSnakeOwnedIds.includes(p.id));
+    
+    filtered = filtered.filter(p => p.name.toLowerCase().includes(search));
+    if (posFilter !== 'ALL') filtered = filtered.filter(p => p.position === posFilter);
+    if (teamFilter !== 'ALL') filtered = filtered.filter(p => p.team === teamFilter);
+
+    if (sortBy === 'points_desc') filtered.sort((a, b) => b.points - a.points);
+    if (sortBy === 'points_asc') filtered.sort((a, b) => a.points - b.points);
+
+    list.innerHTML = '';
+    filtered.slice(0, 100).forEach(p => { 
+        list.innerHTML += createPlayerCardHTML(p, false); // false = просто карточка с профилем
+    });
+}
+
+// Слушатели фильтров Waivers
+['waivers-search', 'waivers-pos-filter', 'waivers-team-filter', 'waivers-sort'].forEach(id => { 
+    const el = document.getElementById(id);
+    if (el) { el.addEventListener('change', renderWaivers); el.addEventListener('input', renderWaivers); }
+});
+
+// КЛИК НА КНОПКУ "DROP" В МЕНЮ ИГРОКА
+document.getElementById('action-btn-waiver')?.addEventListener('click', () => {
+    if(selectedActionSlot.player.id === captainId) {
+        tg.showAlert("⚠️ Нельзя сбросить Капитана! Назначьте кэпом другого игрока.");
+        return;
+    }
+    
+    if (currentWaiverClaimsUsed >= 2) {
+        tg.showAlert("🚫 Превышен лимит! Доступно 0/2 замен на этой неделе.");
+        return;
+    }
+
+    closeModal('action-sheet-modal');
+    
+    const pos = selectedActionSlot.pos;
+    const list = document.getElementById('waiver-pickup-list');
+    
+    // Ищем свободных агентов ТАКОЙ ЖЕ ПОЗИЦИИ
+    let availableFAs = allPlayers.filter(p => !window.currentSnakeOwnedIds.includes(p.id) && p.position === pos);
+    availableFAs.sort((a, b) => b.points - a.points); // Топ по очкам
+    
+    list.innerHTML = '';
+    availableFAs.slice(0, 50).forEach(p => {
+        list.innerHTML += `
+            <div class="player-card" onclick="openPlayerProfile(${p.id})" style="cursor:pointer;">
+                <div class="player-left">
+                    <div class="player-info">
+                        <h4 class="player-name">${p.name}</h4>
+                        <div class="player-tags"><span class="badge pos-${p.position}">${p.position}</span></div>
+                    </div>
+                </div>
+                <div class="player-right">
+                    <button class="icon-btn" style="background: rgba(255,255,255,0.1); width: 44px; height: 44px; font-size: 20px;" onclick="executeWaiverClaim(${p.id}, event)">➕</button>
+                </div>
+            </div>`;
+    });
+    
+    openModal('waiver-pickup-modal', 'flex');
+});
+
+document.getElementById('close-waiver-pickup-btn')?.addEventListener('click', () => { closeModal('waiver-pickup-modal'); });
+
+// ВЫПОЛНЕНИЕ ВЕЙВЕР-КЛЕЙМА (API)
+window.executeWaiverClaim = async function(targetPlayerId, event) {
+    if(event) event.stopPropagation();
+    
+    const p = allPlayers.find(pl => pl.id === targetPlayerId);
+    tg.showConfirm(`Сбросить ${selectedActionSlot.player.name} и забрать ${p.name}? Это потратит 1 замену.`, async (confirmed) => {
+        if (confirmed) {
+            try {
+                const res = await fetch(`/api/leagues/${window.currentSnakeLeagueId}/waiver_claim`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ user_id: userId, drop_player_id: selectedActionSlot.player.id, add_player_id: targetPlayerId })
+                });
+                if (res.ok) {
+                    tg.HapticFeedback.notificationOccurred('success');
+                    closeModal('waiver-pickup-modal');
+                    tg.showAlert("✅ Замена успешно произведена!");
+                    // Перезагружаем хаб
+                    fetchSnakeHubTeam(window.currentSnakeLeagueId); 
+                } else {
+                    const err = await res.json();
+                    tg.showAlert("❌ Ошибка: " + (err.detail || ""));
+                }
+            } catch(e) { tg.showAlert("Ошибка сети"); }
+        }
+    });
+};
+
 document.getElementById('close-profile-btn')?.addEventListener('click', () => { closeModal('player-profile-modal'); });
 document.getElementById('toggle-logs-btn')?.addEventListener('click', () => { showingAllLogs = !showingAllLogs; document.getElementById('toggle-logs-btn').innerText = showingAllLogs ? "Показать только 5" : "Показать весь сезон"; renderPlayerLogs(); });
 
