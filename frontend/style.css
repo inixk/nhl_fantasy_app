@@ -190,3 +190,6 @@ body {
 #other-team-modal {
     z-index: 2500;
 }
+
+/* 🌟 ФИКС: Окно логов всегда поверх всех других окон (даже поверх Snake Hub) */
+#player-profile-modal { z-index: 4000 !important; }

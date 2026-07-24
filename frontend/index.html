@@ -17,7 +17,6 @@
         </div>
     </div>
 
-    <!-- 🌟 ПОЛНОЭКРАННЫЙ GUIDE -->
     <div id="info-modal" class="fullscreen-modal" style="display: none;">
         <div class="fullscreen-header">
             <h3>User Guide 📖</h3>
@@ -26,26 +25,43 @@
         <div class="fullscreen-body guide-text">
             <h4>📌 Базовый концепт</h4><p>Модель <b>"Накопительной экономики" (Bull Market)</b>.</p><ul><li>1 Фэнтэзи-Балл = 1 Fantasy-Coin (FC).</li><li>Игроки растут или падают в цене от результатов.</li><li>Все 17 игроков активны.</li></ul>
             <h4>💰 Бюджет</h4><p><b>Стартовый баланс:</b> 10 000 FC.</p><p><b>Новички:</b> Стартуют со средним капиталом лиги * 0.95.</p>
-            <h4>🏒 Состав (17 игроков)</h4><p><b>9 Нападающих (F)</b>, <b>6 Защитников (D)</b>, <b>2 Вратаря (G)</b>.<br>Максимум 4 игрока из одного клуба.</p>
-            <h4>🔄 Замены (Трансферы)</h4><p><b>6 замен</b> на неделю.<br>🔒 <b>Player Lock:</b> Игроков нельзя продать/купить во время их матча.</p>
-            <h4>⭐️ Капитан (х2 Очков)</h4><p>Выбирается 1 раз на неделю. Все очки удваиваются!</p>
-            <h4>📊 Очки</h4><p><b>Полевые:</b> Гол +8, Пас +4, +/- (+1/-1), Броски/Хиты/Блоки +0.2, Победа +2. Минусы за штраф.</p><p><b>Вратари:</b> Сэйв +0.4, Пропущенная -1.5, Сухарь +10, Победа +6, Пас +10.</p>
+            <h4>🏒 Состав (17 игроков)</h4><p><b>9 Нападающих (F)</b>, <b>6 Защитников (D)</b>, <b>2 Вратаря (G)</b>. Максимум 4 игрока из одного клуба.</p>
+            <h4>🔄 Замены (Трансферы)</h4><p><b>6 замен</b> на неделю. 🔒 <b>Player Lock:</b> Игроков нельзя продать/купить во время их матча.</p>
+            <h4>⭐️ Капитан (х2)</h4><p>Выбирается 1 раз на неделю. Все очки удваиваются!</p>
+            <h4>📊 Очки</h4><p><b>Полевые:</b> Гол +8, Пас +4, +/- (+1/-1), Броски/Хиты/Блоки +0.2, Победа +2. Минусы за штраф.</p><p><b>Вратари:</b> Сэйв +0.4, Пропущенная -1.0, Сухарь +10, Победа +6, Пас +10.</p>
         </div>
     </div>
 
-    <!-- 🌟 ACTION SHEET ДЛЯ КОМАНДЫ -->
+    <!-- 🌟 КАСТОМНОЕ МЕНЮ ИГРОКА (С поддержкой Snake Draft) -->
     <div id="action-sheet-modal" class="modal-overlay action-overlay" style="display: none;">
         <div class="action-sheet">
             <h3 id="action-player-name">Player Name</h3>
             <span id="action-player-price" class="price-tag" style="text-align:center; margin-bottom:10px; display:block;"></span>
+            
             <button id="action-btn-logs" class="action-btn">📊 Stats & Logs</button>
+            
+            <!-- Кнопки Bull Market -->
             <button id="action-btn-captain" class="action-btn">⭐ Make Captain (C)</button>
-            <button id="action-btn-sell" class="action-btn action-sell-btn">🗑 Sell</button>
+            <button id="action-btn-sell" class="action-btn action-sell-btn bull-btn">🗑 Sell</button>
+
+            <!-- Кнопки Snake Draft -->
+            <button id="action-btn-swap" class="action-btn snake-btn" style="display: none;">🔄 Заменить (Swap)</button>
+            <button id="action-btn-trade" class="action-btn snake-btn" style="display: none; background: rgba(255,255,255,0.05); color: var(--text-muted);" disabled>🤝 Trade (Скоро)</button>
+            <button id="action-btn-waiver" class="action-btn snake-btn" style="display: none; background: rgba(255,255,255,0.05); color: var(--ice-line-red); opacity: 0.5;" disabled>🗑 Drop to Waivers (Скоро)</button>
+
             <button id="action-btn-cancel" class="action-btn action-cancel-btn">Cancel</button>
         </div>
     </div>
 
-    <!-- 🌟 РЫНОК -->
+    <!-- 🌟 НОВОЕ ОКНО: ВЫБОР ЗАМЕНЫ ДЛЯ SWAP -->
+    <div id="swap-modal" class="modal-overlay action-overlay" style="display: none;">
+        <div class="action-sheet" style="min-height: 40vh; padding-top: 40px; position: relative;">
+            <button id="close-swap-btn" class="icon-btn" style="position: absolute; top: 15px; right: 15px;">✕</button>
+            <h3 style="margin-top: 0; margin-bottom: 15px;">Выберите игрока</h3>
+            <div id="swap-players-list" class="players-scroll-list" style="padding: 0; overflow-y: auto;"></div>
+        </div>
+    </div>
+
     <div id="market-modal" class="fullscreen-modal" style="display: none;">
         <div class="fullscreen-header">
             <h3>Select: <span id="market-pos-badge" class="badge">F</span></h3>
@@ -54,8 +70,8 @@
         <div class="filters-container">
             <input type="text" id="market-search" placeholder="Player..." class="glass-input">
             <div class="price-range-group">
-                <input type="number" id="market-min-price" placeholder="Min FC" class="glass-input half-input" step="10">
-                <input type="number" id="market-max-price" placeholder="Max FC" class="glass-input half-input" step="10">
+                <input type="number" id="market-min-price" placeholder="Min FC" class="glass-input half-input" step="100">
+                <input type="number" id="market-max-price" placeholder="Max FC" class="glass-input half-input" step="100">
             </div>
             <div class="sort-group">
                 <select id="market-team-filter" class="glass-select" style="width: 48%"><option value="ALL">All Teams</option></select>
@@ -68,7 +84,6 @@
         <div id="market-players-list" class="fullscreen-body"></div>
     </div>
 
-    <!-- 🌟 ПРОФИЛЬ ИГРОКА (ЛОГИ) -->
     <div id="player-profile-modal" class="fullscreen-modal" style="display: none;">
         <div class="fullscreen-header">
             <h3 id="profile-name">Player Name</h3>
@@ -82,16 +97,6 @@
         <div id="player-logs-list" class="fullscreen-body"></div>
     </div>
 
-    <!-- 🌟 ЧУЖАЯ КОМАНДА -->
-    <div id="other-team-modal" class="fullscreen-modal" style="display: none;">
-        <div class="fullscreen-header">
-            <h3 id="other-team-title">Команда</h3>
-            <button id="close-other-team-btn" class="icon-btn">✕</button>
-        </div>
-        <div id="other-team-rink-container" class="fullscreen-body" style="padding: 15px 5px; background: var(--bg-main);"></div>
-    </div>
-
-<!-- Модалка: Лидерборд Лиги (Bull Market) -->
     <div id="private-league-modal" class="fullscreen-modal" style="display: none;">
         <div class="fullscreen-header">
             <h3 id="private-league-title">Лига</h3>
@@ -103,53 +108,9 @@
         <div style="padding: 10px 20px; font-size: 13px; text-align: center; background: rgba(0,0,0,0.2); border-bottom: 1px solid var(--glass-border); flex-shrink:0;">
             Invite Code: <b id="private-league-code" class="spoiler"></b>
         </div>
-        <div id="private-leaderboard-list" class="players-scroll-list" style="padding: 10px;"></div>
+        <div id="private-leaderboard-list" class="fullscreen-body"></div>
     </div>
 
-    <!-- 🌟 СНЕЙК ХАБ (ПРИЛОЖЕНИЕ ВНУТРИ ПРИЛОЖЕНИЯ) -->
-    <div id="snake-hub-modal" class="fullscreen-modal" style="display: none;">
-        <div class="fullscreen-header">
-            <h3 id="snake-hub-title">Snake League</h3>
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <button id="delete-snake-hub-btn" class="icon-btn" style="color: var(--ice-line-red); display: none;">🗑</button>
-                <button id="close-snake-hub-btn" class="icon-btn">✕</button>
-            </div>
-        </div>
-        
-        <div class="segmented-control" style="margin: 15px; flex-shrink: 0;">
-            <div class="segment-tab active" data-target="snake-hub-standings" data-group="snake-hub">🏆 Таблица</div>
-            <div class="segment-tab" data-target="snake-hub-team" data-group="snake-hub">🏒 Мой состав</div>
-            <div class="segment-tab" data-target="snake-hub-waivers" data-group="snake-hub">🛒 Waivers</div>
-        </div>
-
-        <div id="snake-hub-standings" class="sub-section active fullscreen-body" data-group="snake-hub">
-            <div id="snake-hub-leaderboard" class="players-scroll-list" style="padding: 0;"></div>
-        </div>
-
-        <div id="snake-hub-team" class="sub-section fullscreen-body" data-group="snake-hub" style="padding-top: 0;">
-            <div class="ice-rink" style="margin-bottom: 15px;">
-                <div class="rink-section-title">Starting Lineup</div>
-                <div class="rink-row forwards"><div class="player-slot snake-slot" data-pos="F" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">F</div></div><div class="player-slot snake-slot" data-pos="F" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">F</div></div><div class="player-slot snake-slot" data-pos="F" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">F</div></div></div>
-                <div class="rink-row forwards"><div class="player-slot snake-slot" data-pos="F" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">F</div></div><div class="player-slot snake-slot" data-pos="F" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">F</div></div><div class="player-slot snake-slot" data-pos="F" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">F</div></div></div>
-                <div class="red-line"></div>
-                <div class="rink-row defenders"><div class="player-slot snake-slot" data-pos="D" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">D</div></div><div class="player-slot snake-slot" data-pos="D" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">D</div></div></div>
-                <div class="rink-row defenders"><div class="player-slot snake-slot" data-pos="D" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">D</div></div><div class="player-slot snake-slot" data-pos="D" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">D</div></div></div>
-                <div class="blue-line"></div>
-                <div class="rink-row goalies"><div class="player-slot snake-slot" data-pos="G" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">G</div></div></div>
-            </div>
-            <div class="bench-zone">
-                <div class="rink-section-title" style="color: #f87171;">Bench (Inactive)</div>
-                <div class="rink-row bench-row"><div class="player-slot snake-slot" data-pos="F" data-bench="true"><div class="jersey empty">+</div><div class="slot-name">F</div></div><div class="player-slot snake-slot" data-pos="F" data-bench="true"><div class="jersey empty">+</div><div class="slot-name">F</div></div><div class="player-slot snake-slot" data-pos="F" data-bench="true"><div class="jersey empty">+</div><div class="slot-name">F</div></div></div>
-                <div class="rink-row bench-row"><div class="player-slot snake-slot" data-pos="D" data-bench="true"><div class="jersey empty">+</div><div class="slot-name">D</div></div><div class="player-slot snake-slot" data-pos="D" data-bench="true"><div class="jersey empty">+</div><div class="slot-name">D</div></div><div class="player-slot snake-slot" data-pos="G" data-bench="true"><div class="jersey empty">+</div><div class="slot-name">G</div></div></div>
-            </div>
-        </div>
-
-        <div id="snake-hub-waivers" class="sub-section fullscreen-body" data-group="snake-hub">
-            <div class="loading-text">Waivers появятся в Спринте 6.4</div>
-        </div>
-    </div>
-
-<!-- 🌟 ЛОББИ ДРАФТА -->
     <div id="draft-lobby-modal" class="fullscreen-modal" style="display: none;">
         <div class="fullscreen-header">
             <h3 id="lobby-league-title">Лобби Драфта</h3>
@@ -174,7 +135,6 @@
         </div>
     </div>
 
-    <!-- 🌟 ДРАФТ КОМНАТА -->
     <div id="draft-room-modal" class="fullscreen-modal" style="display: none;">
         <div class="fullscreen-header">
             <h3 id="draft-room-title">Draft Room</h3>
@@ -183,9 +143,18 @@
         <div id="draft-status-banner" style="background: var(--accent-blue); padding: 12px; text-align: center; font-weight: bold; color: white; flex-shrink:0; font-size: 14px;">
             Загрузка драфта...
         </div>
-        <!-- 🌟 НОВАЯ КНОПКА ПРОСМОТРА СОСТАВА (Контрастная) -->
-        <div style="text-align: center; padding: 10px; background: rgba(0,0,0,0.2); border-bottom: 1px solid var(--glass-border); flex-shrink:0;">
-            <button id="view-draft-roster-btn" class="glass-btn" style="padding: 10px 15px; font-size: 14px; width: auto; display: inline-block; background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.4); color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.8); box-shadow: 0 4px 6px rgba(0,0,0,0.3);">👀 Мой состав: 0/17</button>
+        <div class="draft-my-team-summary">
+            <div class="draft-counts">
+                <span>Ваш состав:</span>
+                <span>
+                    <span style="color:#f87171" id="draft-f-count">0</span>/9 F | 
+                    <span style="color:#60a5fa" id="draft-d-count">0</span>/6 D | 
+                    <span style="color:#fbbf24" id="draft-g-count">0</span>/2 G
+                </span>
+            </div>
+            <div id="draft-my-players-mini" class="draft-mini-players-container">
+                <div style="color: var(--text-muted); font-size: 12px;">Вы пока никого не выбрали</div>
+            </div>
         </div>
         <div class="filters-container">
             <input type="text" id="draft-search" placeholder="Player..." class="glass-input">
@@ -197,24 +166,59 @@
         <div id="draft-players-list" class="fullscreen-body"></div>
     </div>
 
-    <!-- 🌟 МОЙ ДРАФТ-СОСТАВ -->
-    <div id="draft-roster-modal" class="fullscreen-modal" style="display: none;">
+    <div id="snake-hub-modal" class="fullscreen-modal" style="display: none;">
         <div class="fullscreen-header">
-            <h3>Ваш Драфт-Состав</h3>
-            <button id="close-draft-roster-btn" class="icon-btn">✕</button>
+            <h3 id="snake-hub-title">Snake League</h3>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button id="delete-snake-hub-btn" class="icon-btn" style="color: var(--ice-line-red); display: none;">🗑</button>
+                <button id="close-snake-hub-btn" class="icon-btn">✕</button>
+            </div>
         </div>
-        <div id="draft-roster-list" class="fullscreen-body"></div>
+        <div class="segmented-control" style="margin: 15px; flex-shrink: 0;">
+            <div class="segment-tab active" data-target="snake-hub-standings" data-group="snake-hub">🏆 Таблица</div>
+            <div class="segment-tab" data-target="snake-hub-team" data-group="snake-hub">🏒 Мой состав</div>
+            <div class="segment-tab" data-target="snake-hub-waivers" data-group="snake-hub">🛒 Waivers</div>
+        </div>
+        <div id="snake-hub-standings" class="sub-section active fullscreen-body" data-group="snake-hub">
+            <div id="snake-hub-leaderboard" class="players-scroll-list" style="padding: 0;"></div>
+        </div>
+        <div id="snake-hub-team" class="sub-section fullscreen-body" data-group="snake-hub" style="padding-top: 0;">
+            <div class="ice-rink" style="margin-bottom: 15px;">
+                <div class="rink-section-title">Starting Lineup</div>
+                <div class="rink-row forwards"><div class="player-slot snake-slot" data-pos="F" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">F</div></div><div class="player-slot snake-slot" data-pos="F" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">F</div></div><div class="player-slot snake-slot" data-pos="F" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">F</div></div></div>
+                <div class="rink-row forwards"><div class="player-slot snake-slot" data-pos="F" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">F</div></div><div class="player-slot snake-slot" data-pos="F" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">F</div></div><div class="player-slot snake-slot" data-pos="F" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">F</div></div></div>
+                <div class="red-line"></div>
+                <div class="rink-row defenders"><div class="player-slot snake-slot" data-pos="D" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">D</div></div><div class="player-slot snake-slot" data-pos="D" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">D</div></div></div>
+                <div class="rink-row defenders"><div class="player-slot snake-slot" data-pos="D" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">D</div></div><div class="player-slot snake-slot" data-pos="D" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">D</div></div></div>
+                <div class="blue-line"></div>
+                <div class="rink-row goalies"><div class="player-slot snake-slot" data-pos="G" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">G</div></div></div>
+            </div>
+            <div class="bench-zone">
+                <div class="rink-section-title" style="color: #f87171;">Bench (Inactive)</div>
+                <div class="rink-row bench-row"><div class="player-slot snake-slot" data-pos="F" data-bench="true"><div class="jersey empty">+</div><div class="slot-name">F</div></div><div class="player-slot snake-slot" data-pos="F" data-bench="true"><div class="jersey empty">+</div><div class="slot-name">F</div></div><div class="player-slot snake-slot" data-pos="F" data-bench="true"><div class="jersey empty">+</div><div class="slot-name">F</div></div></div>
+                <div class="rink-row bench-row"><div class="player-slot snake-slot" data-pos="D" data-bench="true"><div class="jersey empty">+</div><div class="slot-name">D</div></div><div class="player-slot snake-slot" data-pos="D" data-bench="true"><div class="jersey empty">+</div><div class="slot-name">D</div></div><div class="player-slot snake-slot" data-pos="G" data-bench="true"><div class="jersey empty">+</div><div class="slot-name">G</div></div></div>
+            </div>
+        </div>
+        <div id="snake-hub-waivers" class="sub-section fullscreen-body" data-group="snake-hub"><div class="loading-text">Waivers появятся в Спринте 6.4</div></div>
     </div>
 
-    <!-- Модалки Создания / Вступления -->
+    <div id="other-team-modal" class="fullscreen-modal" style="display: none;">
+        <div class="fullscreen-header">
+            <h3 id="other-team-title">Команда</h3>
+            <button id="close-other-team-btn" class="icon-btn">✕</button>
+        </div>
+        <div id="other-team-rink-container" class="fullscreen-body" style="padding: 15px 5px; background: var(--bg-main);"></div>
+    </div>
+
+    <!-- Модалки: Создать/Вступить -->
     <div id="create-league-modal" class="modal-overlay" style="display: none;">
         <div class="glass-panel modal-content">
             <h2>Создать Лигу 🏆</h2>
             <input type="text" id="create-league-name" class="glass-input" placeholder="Название лиги..." maxlength="30" style="margin-top: 15px;">
             <input type="text" id="create-team-name" class="glass-input" placeholder="Название команды..." maxlength="30">
             <select id="create-league-type" class="glass-select" style="margin-bottom: 0;">
-                <option value="bull_market">📈 Bull Market (Экономика)</option>
-                <option value="snake_draft">🐍 Snake Draft (Классика)</option>
+                <option value="bull_market">📈 Bull Market</option>
+                <option value="snake_draft">🐍 Snake Draft</option>
             </select>
             <div style="display: flex; gap: 10px; margin-top: 15px;">
                 <button id="cancel-create-league" class="glass-btn" style="background: rgba(255,255,255,0.1);">Отмена</button>
@@ -234,68 +238,9 @@
         </div>
     </div>
 
-<!-- 🌟 СОСТАВ SNAKE DRAFT (11 Основа + 6 Скамейка) -->
-        <div id="snake-hub-team" class="sub-section fullscreen-body" data-group="snake-hub" style="padding-top: 0;">
-            
-            <div class="ice-rink" style="margin-bottom: 15px;">
-                <div class="rink-section-title">Starting Lineup</div>
-                
-                <!-- 6 Нападающих -->
-                <div class="rink-row forwards">
-                    <div class="player-slot snake-slot" data-pos="F" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">F</div></div>
-                    <div class="player-slot snake-slot" data-pos="F" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">F</div></div>
-                    <div class="player-slot snake-slot" data-pos="F" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">F</div></div>
-                </div>
-                <div class="rink-row forwards">
-                    <div class="player-slot snake-slot" data-pos="F" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">F</div></div>
-                    <div class="player-slot snake-slot" data-pos="F" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">F</div></div>
-                    <div class="player-slot snake-slot" data-pos="F" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">F</div></div>
-                </div>
-                <div class="red-line"></div>
-                
-                <!-- 4 Защитника -->
-                <div class="rink-row defenders">
-                    <div class="player-slot snake-slot" data-pos="D" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">D</div></div>
-                    <div class="player-slot snake-slot" data-pos="D" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">D</div></div>
-                </div>
-                <div class="rink-row defenders">
-                    <div class="player-slot snake-slot" data-pos="D" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">D</div></div>
-                    <div class="player-slot snake-slot" data-pos="D" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">D</div></div>
-                </div>
-                <div class="blue-line"></div>
-                
-                <!-- 1 Вратарь -->
-                <div class="rink-row goalies">
-                    <div class="player-slot snake-slot" data-pos="G" data-bench="false"><div class="jersey empty">+</div><div class="slot-name">G</div></div>
-                </div>
-            </div>
-
-            <!-- Скамейка (3F, 2D, 1G) -->
-            <div class="bench-zone">
-                <div class="rink-section-title" style="color: #f87171;">Bench (Inactive)</div>
-                <div class="rink-row bench-row">
-                    <div class="player-slot snake-slot" data-pos="F" data-bench="true"><div class="jersey empty">+</div><div class="slot-name">F</div></div>
-                    <div class="player-slot snake-slot" data-pos="F" data-bench="true"><div class="jersey empty">+</div><div class="slot-name">F</div></div>
-                    <div class="player-slot snake-slot" data-pos="F" data-bench="true"><div class="jersey empty">+</div><div class="slot-name">F</div></div>
-                </div>
-                <div class="rink-row bench-row">
-                    <div class="player-slot snake-slot" data-pos="D" data-bench="true"><div class="jersey empty">+</div><div class="slot-name">D</div></div>
-                    <div class="player-slot snake-slot" data-pos="D" data-bench="true"><div class="jersey empty">+</div><div class="slot-name">D</div></div>
-                    <div class="player-slot snake-slot" data-pos="G" data-bench="true"><div class="jersey empty">+</div><div class="slot-name">G</div></div>
-                </div>
-            </div>
-        </div>
-
-        <div id="snake-hub-waivers" class="sub-section fullscreen-body" data-group="snake-hub">
-            <div class="loading-text">Waivers появятся в Спринте 6.4</div>
-        </div>
-    </div>
-
-    <!-- 🌟 ГЛАВНЫЙ КОНТЕЙНЕР (App) -->
+    <!-- ГЛАВНЫЙ КОНТЕЙНЕР -->
     <div id="app-container" style="display: none; height: 100%; display: flex; flex-direction: column;">
-        
-        <!-- ВКЛАДКА 1: TEAM -->
-        <div id="tab-team" class="tab-content active">
+        <div id="tab-team" class="tab-content active" style="overflow-y: auto;">
             <div class="glass-panel header-info">
                 <div style="display: flex; flex-direction: column; gap: 5px;">
                     <div class="balance-box">Balance: <span id="current-balance">10 000</span> FC</div>
@@ -306,17 +251,17 @@
 
             <div class="ice-rink">
                 <div class="rink-section-title">Forwards</div>
-                <div class="rink-row forwards"><div class="player-slot" data-pos="F" data-index="0"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div><div class="player-slot" data-pos="F" data-index="1"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div><div class="player-slot" data-pos="F" data-index="2"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div></div>
-                <div class="rink-row forwards"><div class="player-slot" data-pos="F" data-index="3"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div><div class="player-slot" data-pos="F" data-index="4"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div><div class="player-slot" data-pos="F" data-index="5"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div></div>
-                <div class="rink-row forwards"><div class="player-slot" data-pos="F" data-index="6"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div><div class="player-slot" data-pos="F" data-index="7"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div><div class="player-slot" data-pos="F" data-index="8"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div></div>
+                <div class="rink-row forwards"><div class="player-slot bull-slot" data-pos="F" data-index="0"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div><div class="player-slot bull-slot" data-pos="F" data-index="1"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div><div class="player-slot bull-slot" data-pos="F" data-index="2"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div></div>
+                <div class="rink-row forwards"><div class="player-slot bull-slot" data-pos="F" data-index="3"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div><div class="player-slot bull-slot" data-pos="F" data-index="4"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div><div class="player-slot bull-slot" data-pos="F" data-index="5"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div></div>
+                <div class="rink-row forwards"><div class="player-slot bull-slot" data-pos="F" data-index="6"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div><div class="player-slot bull-slot" data-pos="F" data-index="7"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div><div class="player-slot bull-slot" data-pos="F" data-index="8"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div></div>
                 <div class="red-line"></div>
                 <div class="rink-section-title">Defenders</div>
-                <div class="rink-row defenders"><div class="player-slot" data-pos="D" data-index="0"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div><div class="player-slot" data-pos="D" data-index="1"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div></div>
-                <div class="rink-row defenders"><div class="player-slot" data-pos="D" data-index="2"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div><div class="player-slot" data-pos="D" data-index="3"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div></div>
-                <div class="rink-row defenders"><div class="player-slot" data-pos="D" data-index="4"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div><div class="player-slot" data-pos="D" data-index="5"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div></div>
+                <div class="rink-row defenders"><div class="player-slot bull-slot" data-pos="D" data-index="0"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div><div class="player-slot bull-slot" data-pos="D" data-index="1"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div></div>
+                <div class="rink-row defenders"><div class="player-slot bull-slot" data-pos="D" data-index="2"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div><div class="player-slot bull-slot" data-pos="D" data-index="3"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div></div>
+                <div class="rink-row defenders"><div class="player-slot bull-slot" data-pos="D" data-index="4"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div><div class="player-slot bull-slot" data-pos="D" data-index="5"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div></div>
                 <div class="blue-line"></div>
                 <div class="rink-section-title">Goalies</div>
-                <div class="rink-row goalies"><div class="player-slot" data-pos="G" data-index="0"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div><div class="player-slot" data-pos="G" data-index="1"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div></div>
+                <div class="rink-row goalies"><div class="player-slot bull-slot" data-pos="G" data-index="0"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div><div class="player-slot bull-slot" data-pos="G" data-index="1"><div class="jersey empty">+</div><div class="slot-name">Empty</div></div></div>
             </div>
             <button id="save-team-btn" class="glass-btn primary-btn" style="margin-top: 15px;" disabled>Save changes</button>
         </div>
@@ -359,8 +304,8 @@
             <div class="filters-container glass-panel" style="margin-bottom: 15px; border-radius: 16px; flex-shrink:0;">
                 <input type="text" id="fantasy-search" placeholder="Player..." class="glass-input">
                 <div class="price-range-group">
-                    <input type="number" id="fantasy-min-price" placeholder="Min FC" class="glass-input half-input" step="10">
-                    <input type="number" id="fantasy-max-price" placeholder="Max FC" class="glass-input half-input" step="10">
+                    <input type="number" id="fantasy-min-price" placeholder="Min FC" class="glass-input half-input" step="100">
+                    <input type="number" id="fantasy-max-price" placeholder="Max FC" class="glass-input half-input" step="100">
                 </div>
                 <div class="sort-group">
                     <select id="fantasy-pos-filter" class="glass-select" style="width: 30%"><option value="ALL">Pos</option><option value="F">F</option><option value="D">D</option><option value="G">G</option></select>
@@ -375,7 +320,6 @@
 
         <!-- ВКЛАДКА 4: LEAGUES -->
         <div id="tab-leagues" class="tab-content">
-            <!-- 🌟 ИЗМЕНЕНИЕ: Три вкладки (Общий, Bull, Snake) -->
             <div class="segmented-control" style="font-size: 12px;">
                 <div class="segment-tab active" data-target="leagues-general" data-group="leagues">🌍 Global</div>
                 <div class="segment-tab" data-target="leagues-bull" data-group="leagues">📈 Bull</div>
@@ -391,7 +335,7 @@
 
             <div id="leagues-bull" class="sub-section" data-group="leagues">
                 <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-shrink: 0;">
-                    <button class="glass-btn primary-btn" onclick="openCreateLeagueModal('bull_market')" style="font-size: 14px; padding: 12px;">➕ Создать Bull Лигу</button>
+                    <button class="glass-btn primary-btn" onclick="openCreateLeagueModal('bull_market')" style="font-size: 14px; padding: 12px;">➕ Создать Bull</button>
                     <button class="glass-btn" onclick="openJoinLeagueModal()" style="font-size: 14px; padding: 12px; background: rgba(255,255,255,0.1);">🔗 Вступить</button>
                 </div>
                 <div id="my-leagues-bull-list" class="players-scroll-list" style="padding:0;"></div>
@@ -399,7 +343,7 @@
 
             <div id="leagues-snake" class="sub-section" data-group="leagues">
                 <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-shrink: 0;">
-                    <button class="glass-btn primary-btn" onclick="openCreateLeagueModal('snake_draft')" style="font-size: 14px; padding: 12px;">➕ Создать Snake Лигу</button>
+                    <button class="glass-btn primary-btn" onclick="openCreateLeagueModal('snake_draft')" style="font-size: 14px; padding: 12px;">➕ Создать Snake</button>
                     <button class="glass-btn" onclick="openJoinLeagueModal()" style="font-size: 14px; padding: 12px; background: rgba(255,255,255,0.1);">🔗 Вступить</button>
                 </div>
                 <div id="my-leagues-snake-list" class="players-scroll-list" style="padding:0;"></div>
@@ -412,10 +356,10 @@
     <div class="bottom-nav">
         <div class="nav-item active" data-target="tab-team">🏒 My team</div>
         <div class="nav-item" data-target="tab-stats">📊 NHL</div>
-        <div class="nav-item" data-target="tab-fantasy">🛒 Fantasy stats</div>
+        <div class="nav-item" data-target="tab-fantasy">🛒 Fantasy</div>
         <div class="nav-item" data-target="tab-leagues">🏆 Leagues</div>
     </div>
 
-    <script src="app.js?v=115"></script>
+    <script src="app.js?v=118"></script>
 </body>
 </html>

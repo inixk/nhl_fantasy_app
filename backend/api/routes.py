@@ -447,3 +447,65 @@ async def make_draft_pick(league_id: int, req: DraftPickRequest, db: AsyncSessio
     if not res_next.scalar_one_or_none(): league.draft_status = DraftStatus.POST_DRAFT
     await db.commit()
     return {"status": "success"}
+
+    # ==========================================
+# 🔄 МЕХАНИКА ЗАМЕН (SWAP) ДЛЯ SNAKE DRAFT
+# ==========================================
+class SwapPlayerRequest(BaseModel):
+    user_id: int
+    player1_id: int
+    player2_id: int
+
+@router.post("/leagues/{league_id}/swap")
+async def swap_snake_players(league_id: int, req: SwapPlayerRequest, db: AsyncSession = Depends(get_db)):
+    """Меняет игроков местами (Основа ⇄ Скамейка)"""
+    res_member = await db.execute(
+        select(LeagueMember).where(LeagueMember.league_id == league_id, LeagueMember.user_id == req.user_id)
+    )
+    member = res_member.scalar_one_or_none()
+    if not member: 
+        raise HTTPException(404, "Member not found")
+        
+    res_p1 = await db.execute(select(RosterPlayer).options(selectinload(RosterPlayer.player)).where(RosterPlayer.member_id == member.id, RosterPlayer.player_id == req.player1_id))
+    rp1 = res_p1.scalar_one_or_none()
+    
+    res_p2 = await db.execute(select(RosterPlayer).options(selectinload(RosterPlayer.player)).where(RosterPlayer.member_id == member.id, RosterPlayer.player_id == req.player2_id))
+    rp2 = res_p2.scalar_one_or_none()
+    
+    if not rp1 or not rp2: 
+        raise HTTPException(400, "Игроки не найдены в вашем составе")
+        
+    if rp1.player.position != rp2.player.position: 
+        raise HTTPException(400, "Можно менять только игроков одинаковой позиции (F на F, D на D)")
+        
+    if rp1.is_benched == rp2.is_benched: 
+        raise HTTPException(400, "Один игрок должен быть в основе, а другой на скамейке")
+        
+    # 🔒 ТУТ БУДЕТ ПРОВЕРКА PLAYER LOCK (Заморозка)
+    # В будущем мы добавим запрос к nhl_api, чтобы проверить, не начался ли матч:
+    # if match_started(rp1.player_id) or match_started(rp2.player_id):
+    #     raise HTTPException(400, "Матч уже начался! Игрок заморожен.")
+    
+    # Совершаем рокировку
+    rp1.is_benched, rp2.is_benched = rp2.is_benched, rp1.is_benched
+    await db.commit()
+    
+    return {"status": "success"}
+
+# 🌟 МГНОВЕННОЕ СОХРАНЕНИЕ КАПИТАНА ДЛЯ SNAKE DRAFT
+@router.post("/leagues/{league_id}/set_captain")
+async def set_snake_captain(league_id: int, payload: dict, db: AsyncSession = Depends(get_db)):
+    user_id = payload.get("user_id")
+    captain_id = payload.get("captain_id")
+    
+    res_member = await db.execute(
+        select(LeagueMember).where(LeagueMember.league_id == league_id, LeagueMember.user_id == user_id)
+    )
+    member = res_member.scalar_one_or_none()
+    
+    if member:
+        member.captain_id = captain_id
+        await db.commit()
+        return {"status": "success"}
+        
+    raise HTTPException(404, "Member not found")
